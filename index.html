@@ -262,7 +262,6 @@
                                         <span class="text-[9px] text-purple-300">📅 ${todo.date}</span>
                                     </div>
                                 </div>
-                                <!-- 新增：Edit 铅笔按钮在 bin 垃圾桶的左边 -->
                                 <div class="flex items-center space-x-1">
                                     <button onclick="editTodoItem(${todo.id})" class="text-purple-300 hover:text-white p-1 text-xs" title="Edit">✏️</button>
                                     <button onclick="deleteTodo(${todo.id})" class="text-red-400 hover:text-red-300 p-1 text-xs" title="Delete">🗑️</button>
@@ -275,15 +274,25 @@
         }
 
         function updateMemo(val) { state.memoText = val; saveState(); }
+        
         function addTodoItem() {
             const text = prompt("请输入新的待办事项:");
             if (!text) return;
             const date = prompt("请输入日期 (格式 YYYY-MM-DD):", new Date().toISOString().split('T')[0]);
-            state.todos.push({ id: Date.now(), text, completed: false, date: date || "今日" });
+            
+            // 记录精确创建时间戳
+            const createdAtStr = new Date().toLocaleString('zh-CN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+            
+            state.todos.push({ 
+                id: Date.now(), 
+                text, 
+                completed: false, 
+                date: date || "今日",
+                createdAt: createdAtStr // 新增：保存建立时间
+            });
             saveState(); render();
         }
 
-        // 新增：编辑待办事项功能
         function editTodoItem(id) {
             const todo = state.todos.find(t => t.id === id);
             if (!todo) return;
@@ -295,12 +304,18 @@
             }
         }
 
+        // 勾选完成：记录完成时间，并保留建立时间
         function completeTodo(id) {
             const index = state.todos.findIndex(t => t.id === id);
             if (index !== -1) {
                 const finishedItem = state.todos[index];
                 finishedItem.completed = true;
+                // 如果之前老数据没有 createdAt，给个默认兜底
+                if (!finishedItem.createdAt) {
+                    finishedItem.createdAt = finishedItem.date || "未知时间";
+                }
                 finishedItem.finishedAt = new Date().toLocaleString('zh-CN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+                
                 state.completedTodos.unshift(finishedItem);
                 state.todos.splice(index, 1);
                 saveState();
@@ -310,7 +325,7 @@
 
         function deleteTodo(id) { state.todos = state.todos.filter(t => t.id !== id); saveState(); render(); }
 
-        // ================= 日历历史档案弹窗逻辑 =================
+        // ================= 日历历史档案弹窗逻辑 (展示 建立于 & 完成于) =================
         function openCalendarModal() {
             const container = document.getElementById('completedHistoryList');
             if (state.completedTodos.length === 0) {
@@ -318,9 +333,12 @@
             } else {
                 container.innerHTML = state.completedTodos.map(item => `
                     <div class="app-card p-3 rounded-xl border border-yellow-400/30 flex items-center justify-between shadow-sm">
-                        <div class="flex flex-col space-y-0.5">
-                            <span class="text-xs text-white line-through opacity-80 font-medium">${item.text}</span>
-                            <span class="text-[9px] text-yellow-300">✅ 完成于: ${item.finishedAt || item.date}</span>
+                        <div class="flex flex-col space-y-1">
+                            <span class="text-xs text-white line-through opacity-90 font-medium">${item.text}</span>
+                            <div class="flex flex-col space-y-0.5 text-[9px]">
+                                <span class="text-purple-300">📌 建立于: ${item.createdAt || '未知'}</span>
+                                <span class="text-yellow-300">✅ 完成于: ${item.finishedAt || item.date}</span>
+                            </div>
                         </div>
                         <button onclick="deleteCompletedHistory(${item.id})" class="text-red-400 hover:text-red-300 text-xs px-2" title="清除记录">🗑️</button>
                     </div>
@@ -481,8 +499,8 @@
 
             const chatBox = document.getElementById('maxChatBox');
             const promptText = mode === 'todo' 
-                ? "📋 您选择了 **Help me To-Do**。请问今天有什么新任务要交给我？（输入后按 Enter，我将为您优化并直接加入待办列表）" 
-                : "📝 您选择了 **Quick memo**。请问有什么灵感或备忘需要记录？（输入后按 Enter，我将为您精简并存入速记备忘）";
+                ? "📋 您选择了 **Help me To-Do**。请问今天有什么新任务要交给我？（输入后按 Enter，我将为您加入待办列表）" 
+                : "📝 您选择了 **Quick memo**。请问有什么灵感或备忘需要记录？（输入后按 Enter，我将为您存入速记备忘）";
 
             chatBox.innerHTML += `
                 <div class="bg-purple-900/50 p-3 rounded-2xl border border-purple-400/30">
@@ -507,17 +525,22 @@
 
             setTimeout(() => {
                 let aiReply = "";
+                const createdAtStr = new Date().toLocaleString('zh-CN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+
                 if (maxState.mode === 'todo') {
-                    // 优化句子但不再带有 [AI优化] 前缀，保持干净
-                    const optimizedText = text; 
-                    state.todos.push({ id: Date.now(), text: optimizedText, completed: false, date: new Date().toISOString().split('T')[0] });
+                    state.todos.push({ 
+                        id: Date.now(), 
+                        text: text, 
+                        completed: false, 
+                        date: new Date().toISOString().split('T')[0],
+                        createdAt: createdAtStr // Max 添加时也记录创建时间
+                    });
                     saveState();
-                    aiReply = `✅ 收到！我已为您优化并自动添加至 <b class="text-yellow-300">To-do-List</b>：<br>“${optimizedText}”`;
+                    aiReply = `✅ 收到！我已为您自动添加至 <b class="text-yellow-300">To-do-List</b>：<br>“${text}”`;
                 } else if (maxState.mode === 'memo') {
-                    const optimizedMemo = text;
-                    state.memoText = state.memoText ? state.memoText + "\n" + optimizedMemo : optimizedMemo;
+                    state.memoText = state.memoText ? state.memoText + "\n" + text : text;
                     saveState();
-                    aiReply = `✨ 收到！我已为您提炼重点并追加至 <b class="text-yellow-300">Quick Memo</b> 备忘录中。`;
+                    aiReply = `✨ 收到！我已为您追加至 <b class="text-yellow-300">Quick Memo</b> 备忘录中。`;
                 }
 
                 chatBox.innerHTML += `
