@@ -44,9 +44,7 @@
 
     <!-- 底部悬浮 AI 秘书 (Max) 右下角 + 智能催促气泡 -->
     <div class="fixed right-6 bottom-20 flex items-center space-x-2 z-40">
-        <div id="maxGreetingBubble" onclick="openMaxChat()" class="bubble-anim app-card px-3.5 py-2 rounded-2xl border border-yellow-400/50 shadow-xl cursor-pointer text-[11px] text-yellow-300 font-semibold tracking-wide whitespace-nowrap active:scale-95 transition">
-            <!-- 动态催促语由 JS 填充 -->
-        </div>
+        <div id="maxGreetingBubble" onclick="openMaxChat()" class="bubble-anim app-card px-3.5 py-2 rounded-2xl border border-yellow-400/50 shadow-xl cursor-pointer text-[11px] text-yellow-300 font-semibold tracking-wide whitespace-nowrap active:scale-95 transition"></div>
         <div onclick="openMaxChat()" class="w-12 h-12 bg-yellow-400 rounded-full shadow-2xl flex items-center justify-center cursor-pointer border-2 border-purple-950 active:scale-95 transition group relative" title="Secretary AI: Max">
             <span class="text-xl">🤖</span>
             <span class="absolute -top-1 -right-1 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-purple-950"></span>
@@ -67,6 +65,23 @@
             <span class="text-xl">👤</span>
             <span class="text-[10px] mt-1 font-semibold">Profile</span>
         </button>
+    </div>
+
+    <!-- 📅 点击日历弹出的“已完成历史清单”模态框 -->
+    <div id="calendarModal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex flex-col justify-end">
+        <div class="app-card rounded-t-3xl p-6 border-t border-yellow-400/30 max-h-[75vh] flex flex-col">
+            <div class="flex justify-between items-center mb-4 border-b border-purple-500/30 pb-3">
+                <div class="flex items-center space-x-2">
+                    <span class="text-xl">📅</span>
+                    <div>
+                        <h3 class="font-bold text-sm text-yellow-300">已完成历史待办档案</h3>
+                        <p class="text-[10px] text-purple-200">Review your past achievements</p>
+                    </div>
+                </div>
+                <button onclick="closeCalendarModal()" class="text-purple-300 hover:text-white text-lg font-bold px-2">✕</button>
+            </div>
+            <div id="completedHistoryList" class="flex-1 overflow-y-auto space-y-2.5 pr-1"></div>
+        </div>
     </div>
 
     <!-- AI Max 全屏沉浸式交互层 -->
@@ -104,7 +119,7 @@
     </div>
 
     <script>
-        // --- 核心全局状态数据与智能登录检测 ---
+        // --- 核心全局状态数据 ---
         let state = {
             currentPage: 1,
             userProfile: {
@@ -114,6 +129,7 @@
             },
             memoText: localStorage.getItem('omi_memo') || "",
             todos: JSON.parse(localStorage.getItem('omi_todos')) || [],
+            completedTodos: JSON.parse(localStorage.getItem('omi_completed_todos')) || [],
             bigGoals: JSON.parse(localStorage.getItem('omi_goals')) || [],
             baziInput: JSON.parse(localStorage.getItem('omi_bazi')) || {
                 year: "1997", month: "12", day: "04", time: "17:45", country: "Malaysia", city: "Kuching"
@@ -122,15 +138,12 @@
 
         let maxState = { mode: null, messages: [] };
 
-        // 检查并记录今天是否登录过
         function checkDailyLoginStatus() {
-            const todayStr = new Date().toDateString(); // 例如 "Wed Nov 18 2026"
+            const todayStr = new Date().toDateString();
             const lastLoginDate = localStorage.getItem('omi_last_login_date');
             const hour = new Date().getHours();
-
             let activeNotice = null;
 
-            // 如果今天还没记录过登录
             if (lastLoginDate !== todayStr) {
                 if (hour >= 8 && hour < 12) {
                     activeNotice = "🔥 老板早安！您还没检查今天要干嘛，盘看了吗？";
@@ -138,23 +151,18 @@
                     activeNotice = "🌙 老板，店里需要下订单吗？明天的工作准备好了吗？";
                 }
             }
-
-            // 更新今天的最后登录日期
             localStorage.setItem('omi_last_login_date', todayStr);
             return activeNotice;
         }
 
-        // 智能生成气泡文案（优先展示未登录的主动催促，否则随机日常问候）
         function initRandomGreeting() {
             const bubble = document.getElementById('maxGreetingBubble');
             if (!bubble) return;
-
             const urgentNotice = checkDailyLoginStatus();
             if (urgentNotice) {
                 bubble.innerText = urgentNotice;
                 return;
             }
-
             const greetings = [
                 "Hello, what to do boss? 🫡",
                 "How are you today, Boss? ✨",
@@ -169,6 +177,7 @@
         function saveState() {
             localStorage.setItem('omi_memo', state.memoText);
             localStorage.setItem('omi_todos', JSON.stringify(state.todos));
+            localStorage.setItem('omi_completed_todos', JSON.stringify(state.completedTodos));
             localStorage.setItem('omi_goals', JSON.stringify(state.bigGoals));
             localStorage.setItem('omi_bazi', JSON.stringify(state.baziInput));
             localStorage.setItem('omi_avatar', state.userProfile.avatar);
@@ -216,15 +225,16 @@
         // ================= PAGE 1: DASHBOARD =================
         function renderDashboard(container) {
             const todayStr = new Date().toLocaleDateString('zh-CN', { month: 'short', day: 'numeric', weekday: 'short' });
+            
             container.innerHTML = `
                 <div class="flex justify-between items-center">
                     <div class="flex items-center space-x-3">
                         <img src="${state.userProfile.avatar}" class="w-10 h-10 rounded-full object-cover border-2 border-yellow-400 shadow-md">
                         <span class="font-bold text-sm tracking-wide">${state.userProfile.name}</span>
                     </div>
-                    <div class="app-card px-3 py-1.5 rounded-xl border border-purple-500/30 text-xs text-purple-200 flex items-center space-x-1 shadow-inner">
+                    <div onclick="openCalendarModal()" class="app-card px-3.5 py-1.5 rounded-xl border border-yellow-400/50 text-xs text-yellow-300 flex items-center space-x-1.5 shadow-md cursor-pointer active:scale-95 transition" title="点击查看历史已完成待办">
                         <span>📅</span>
-                        <span class="font-medium">${todayStr}</span>
+                        <span class="font-bold">${todayStr}</span>
                     </div>
                 </div>
 
@@ -252,7 +262,11 @@
                                         <span class="text-[9px] text-purple-300">📅 ${todo.date}</span>
                                     </div>
                                 </div>
-                                <button onclick="deleteTodo(${todo.id})" class="text-red-400 hover:text-red-300 text-sm px-2" title="Delete">🗑️</button>
+                                <!-- 新增：Edit 铅笔按钮在 bin 垃圾桶的左边 -->
+                                <div class="flex items-center space-x-1">
+                                    <button onclick="editTodoItem(${todo.id})" class="text-purple-300 hover:text-white p-1 text-xs" title="Edit">✏️</button>
+                                    <button onclick="deleteTodo(${todo.id})" class="text-red-400 hover:text-red-300 p-1 text-xs" title="Delete">🗑️</button>
+                                </div>
                             </div>
                         `).join('')}
                     </div>
@@ -268,14 +282,62 @@
             state.todos.push({ id: Date.now(), text, completed: false, date: date || "今日" });
             saveState(); render();
         }
-        function completeTodo(id) {
-            const item = state.todos.find(t => t.id === id);
-            if (item) {
-                item.completed = true; saveState();
-                setTimeout(() => { state.todos = state.todos.filter(t => t.id !== id); saveState(); render(); }, 300);
+
+        // 新增：编辑待办事项功能
+        function editTodoItem(id) {
+            const todo = state.todos.find(t => t.id === id);
+            if (!todo) return;
+            const newText = prompt("修改待办事项内容:", todo.text);
+            if (newText !== null && newText.trim() !== "") {
+                todo.text = newText.trim();
+                saveState();
+                render();
             }
         }
+
+        function completeTodo(id) {
+            const index = state.todos.findIndex(t => t.id === id);
+            if (index !== -1) {
+                const finishedItem = state.todos[index];
+                finishedItem.completed = true;
+                finishedItem.finishedAt = new Date().toLocaleString('zh-CN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+                state.completedTodos.unshift(finishedItem);
+                state.todos.splice(index, 1);
+                saveState();
+                render();
+            }
+        }
+
         function deleteTodo(id) { state.todos = state.todos.filter(t => t.id !== id); saveState(); render(); }
+
+        // ================= 日历历史档案弹窗逻辑 =================
+        function openCalendarModal() {
+            const container = document.getElementById('completedHistoryList');
+            if (state.completedTodos.length === 0) {
+                container.innerHTML = `<p class="text-xs text-purple-300 text-center py-8">暂无已完成的历史待办记录，快去勾选几个任务吧！✨</p>`;
+            } else {
+                container.innerHTML = state.completedTodos.map(item => `
+                    <div class="app-card p-3 rounded-xl border border-yellow-400/30 flex items-center justify-between shadow-sm">
+                        <div class="flex flex-col space-y-0.5">
+                            <span class="text-xs text-white line-through opacity-80 font-medium">${item.text}</span>
+                            <span class="text-[9px] text-yellow-300">✅ 完成于: ${item.finishedAt || item.date}</span>
+                        </div>
+                        <button onclick="deleteCompletedHistory(${item.id})" class="text-red-400 hover:text-red-300 text-xs px-2" title="清除记录">🗑️</button>
+                    </div>
+                `).join('');
+            }
+            document.getElementById('calendarModal').classList.remove('hidden');
+        }
+
+        function closeCalendarModal() {
+            document.getElementById('calendarModal').classList.add('hidden');
+        }
+
+        function deleteCompletedHistory(id) {
+            state.completedTodos = state.completedTodos.filter(item => item.id !== id);
+            saveState();
+            openCalendarModal();
+        }
 
         // ================= PAGE 2: BAZI & RHYTHM WIDGET =================
         function renderBaziWidget(container) {
@@ -446,15 +508,16 @@
             setTimeout(() => {
                 let aiReply = "";
                 if (maxState.mode === 'todo') {
-                    const optimizedText = `[AI优化] ${text}`;
+                    // 优化句子但不再带有 [AI优化] 前缀，保持干净
+                    const optimizedText = text; 
                     state.todos.push({ id: Date.now(), text: optimizedText, completed: false, date: new Date().toISOString().split('T')[0] });
                     saveState();
                     aiReply = `✅ 收到！我已为您优化并自动添加至 <b class="text-yellow-300">To-do-List</b>：<br>“${optimizedText}”`;
                 } else if (maxState.mode === 'memo') {
-                    const optimizedMemo = `[灵感] ${text}`;
+                    const optimizedMemo = text;
                     state.memoText = state.memoText ? state.memoText + "\n" + optimizedMemo : optimizedMemo;
                     saveState();
-                    aiReply = `✨ 收到！我已为您提炼重点并自动追加至 <b class="text-yellow-300">Quick Memo</b> 备忘录中。`;
+                    aiReply = `✨ 收到！我已为您提炼重点并追加至 <b class="text-yellow-300">Quick Memo</b> 备忘录中。`;
                 }
 
                 chatBox.innerHTML += `
