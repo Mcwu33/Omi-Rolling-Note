@@ -13,7 +13,7 @@
             -webkit-user-select: none;
         }
         .app-card {
-            background: rgba(60, 42, 90, 0.7);
+            background: rgba(60, 42, 90, 0.75);
             backdrop-filter: blur(10px);
         }
         @keyframes floatBubble {
@@ -22,6 +22,17 @@
         }
         .bubble-anim {
             animation: floatBubble 3s ease-in-out infinite;
+        }
+
+        /* 🔥 动态火花/流光边框特效 */
+        @keyframes fireBorder {
+            0% { border-color: rgba(250, 204, 21, 0.4); box-shadow: 0 0 10px rgba(250, 204, 21, 0.1); }
+            50% { border-color: rgba(249, 115, 22, 0.8); box-shadow: 0 0 18px rgba(249, 115, 22, 0.3); }
+            100% { border-color: rgba(250, 204, 21, 0.4); box-shadow: 0 0 10px rgba(250, 204, 21, 0.1); }
+        }
+        .fire-card {
+            animation: fireBorder 3s ease-in-out infinite;
+            border-width: 2px;
         }
     </style>
 </head>
@@ -160,6 +171,30 @@
             initRandomGreeting();
         }
 
+        // --- 动态生成高能能量流文案 (根据时间自动切换并加粗) ---
+        function renderEnergyFlowCard() {
+            const hour = new Date().getHours();
+            let flowText = "";
+            let flowTitle = "TIME & ENERGY FLOW";
+
+            if (hour >= 8 && hour < 12) {
+                flowText = "🔥 <b>早安蓄力！BUFF叠满直接暴击</b> ➔ 盘点验收拉满执行力，顺便查缺补漏扫荡采购清单！";
+            } else if (hour >= 12 && hour < 19) {
+                flowText = "⚡ <b>午后持续高能输出</b> ➔ 老板核心任务推进中，把所有阻碍一键清零！";
+            } else if (hour >= 19 && hour < 22.5) {
+                flowText = "🔋 <b>晚间回血与复盘</b> ➔ 放空头脑整理思绪，蓄势待发迎接接下来的暗夜狂飙！";
+            } else {
+                flowText = "🚀 <b>深夜灵感暴走！</b> ➔ 盯盘复盘、Debug 狂飙、供应链下单，顺便复盘整天高光时刻！";
+            }
+
+            return `
+                <div class="app-card fire-card p-3.5 rounded-2xl text-center shadow-xl">
+                    <div class="text-[10px] text-yellow-300 uppercase tracking-widest font-extrabold mb-1">⚡ ${flowTitle}</div>
+                    <div class="text-xs text-purple-100 leading-relaxed">${flowText}</div>
+                </div>
+            `;
+        }
+
         // ================= PAGE 1: DASHBOARD =================
         function renderDashboard(container) {
             const todayStr = new Date().toLocaleDateString('zh-CN', { month: 'short', day: 'numeric', weekday: 'short' });
@@ -176,10 +211,8 @@
                     </div>
                 </div>
 
-                <div class="app-card p-3 rounded-2xl border border-purple-400/30 text-center shadow-lg">
-                    <div class="text-[10px] text-purple-300 uppercase tracking-widest font-bold">⚡ Time & Energy Flow</div>
-                    <div class="text-xs font-bold text-yellow-300 mt-1">午后高效区 ➔ 保持专注，掌控节奏</div>
-                </div>
+                <!-- 动态高能能量流组件 (带动态火花边框) -->
+                ${renderEnergyFlowCard()}
 
                 <div class="app-card p-3 rounded-2xl border border-purple-400/30 flex flex-col h-36 shadow-lg">
                     <div class="text-[10px] text-purple-300 font-semibold mb-1">📝 Quick Memo (速记备忘)</div>
@@ -278,18 +311,15 @@
             render();
         }
 
-        // ================= PAGE 3: USER PROFILE (手机相册直选) =================
+        // ================= PAGE 3: USER PROFILE =================
         function renderProfile(container) {
             container.innerHTML = `
                 <div class="text-center space-y-4 pt-2">
                     <h2 class="text-lg font-black tracking-wide text-yellow-300">👤 User Profile</h2>
-                    
-                    <!-- 点击直接触发手机相册选择器 -->
                     <div class="relative w-24 h-24 mx-auto group cursor-pointer" onclick="triggerPhotoSelect()">
                         <img src="${state.userProfile.avatar}" class="w-full h-full rounded-full object-cover border-4 border-yellow-400 shadow-xl">
                         <div class="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition text-xs font-bold">更换头像</div>
                     </div>
-                    
                     <div class="flex justify-center items-center space-x-2">
                         <input type="text" id="userNameInput" value="${state.userProfile.name}" onchange="updateUserName(this.value)" class="bg-purple-950/60 border border-purple-500/40 rounded-xl px-4 py-1.5 text-sm text-center font-bold text-white w-40">
                     </div>
@@ -318,25 +348,14 @@
             `;
         }
 
-        // 唤起手机相册
-        function triggerPhotoSelect() {
-            document.getElementById('avatarFileInput').click();
-        }
-
-        // 处理相册选中的图片，转为本地 Base64 存储
+        function triggerPhotoSelect() { document.getElementById('avatarFileInput').click(); }
         function handleImageUpload(event) {
             const file = event.target.files[0];
             if (!file) return;
-
             const reader = new FileReader();
-            reader.onload = function(e) {
-                state.userProfile.avatar = e.target.result;
-                saveState();
-                render();
-            };
+            reader.onload = function(e) { state.userProfile.avatar = e.target.result; saveState(); render(); };
             reader.readAsDataURL(file);
         }
-
         function updateUserName(newName) { if (!newName) return; state.userProfile.name = newName; saveState(); render(); }
         function addGoalItem() {
             const text = prompt("请输入新的宏大目标 (Big Goal):");
