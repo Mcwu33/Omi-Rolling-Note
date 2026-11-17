@@ -67,7 +67,7 @@
         </button>
     </div>
 
-    <!-- 📅 点击日历弹出的“已完成历史待办档案”模态框 -->
+    <!-- 📅 点击日历弹出的“已完成历史清单”模态框 -->
     <div id="calendarModal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex flex-col justify-end">
         <div class="app-card rounded-t-3xl p-6 border-t border-yellow-400/30 max-h-[75vh] flex flex-col">
             <div class="flex justify-between items-center mb-4 border-b border-purple-500/30 pb-3">
@@ -335,49 +335,9 @@
         function deleteCompletedHistory(id) { state.completedTodos = state.completedTodos.filter(item => item.id !== id); saveState(); openCalendarModal(); }
 
 
-        // ================= PAGE 2: DESTINY & CHRONO MATRIX (动态玄学演算引擎) =================
+        // ================= PAGE 2: DESTINY & CHRONO MATRIX (专属 Marcus 真实命盘硬编码引擎) =================
         
-        // 动态根据年月日计算天干地支简易模拟与五行强弱
-        function calculateBaziDynamic(y, m, d) {
-            const stems = ["甲", "乙", "丙", "丁", "戊", "己", "庚", "辛", "壬", "癸"];
-            const branches = ["子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥"];
-            
-            let yIdx = (y - 4) % 10;
-            let bIdx = (y - 4) % 12;
-            if (yIdx < 0) yIdx += 10;
-            if (bIdx < 0) bIdx += 12;
-
-            const yearPillar = stems[yIdx] + branches[bIdx];
-            const monthPillar = stems[(y * 2 + m) % 10] + branches[(m + 1) % 12];
-            const dayPillar = stems[(d + y) % 10] + branches[(d + 4) % 12];
-            const timePillar = "乙酉"; // 默认时柱
-
-            // 动态五行统计模拟
-            const elementsPool = ["金", "木", "水", "火", "土", "金", "水"];
-            const excess = elementsPool[(y + m) % 5];
-            const deficiency = elementsPool[(d * 2) % 5];
-
-            const analysisMap = {
-                "金": { excessName: "金气肃杀刚健", excessDesc: "果断坚决、执行力极强、对逻辑与财务极度敏感。", defName: "木火偏弱", defDesc: "需适当补充温和包容力，避免过度严苛。" },
-                "木": { excessName: "木气生发蓬勃", excessDesc: "极具创造力、开拓精神与成长规划能力。", defName: "金气偏弱", defDesc: "需增强收敛与决断力，做事切忌犹豫不决。" },
-                "水": { excessName: "水势灵动深邃", excessDesc: "思维敏捷、适应能力顶级、具备高超的直觉。", defName: "土气偏弱", defDesc: "需加强根基稳固性，避免思虑过多而缺乏落地。" },
-                "火": { excessName: "火势热烈光明", excessDesc: "充满激情与号召力，能迅速点燃团队与项目。", defName: "水气偏弱", defDesc: "需注意劳逸结合，避免过度消耗精力冲动行事。" },
-                "土": { excessName: "土信厚重稳健", excessDesc: "极强的承载力与资源整合能力，稳扎稳打。", defName: "木气偏弱", defDesc: "需适度激发创新变革思维，防止过于保守。" }
-            };
-
-            const info = analysisMap[excess] || analysisMap["金"];
-
-            return {
-                pillars: `${yearPillar}、${monthPillar}、${dayPillar}、${timePillar}`,
-                excess: excess,
-                excessDesc: info.excessDesc,
-                deficiency: deficiency,
-                defName: info.defName,
-                defDesc: info.defDesc
-            };
-        }
-
-        // 精准计算生命灵数 (Sum of digits reduced to 1-9, 11, 22, 33)
+        // 精准计算生命灵数 (1997-12-04 ➔ 6号人)
         function calculateLifePathNumber(y, m, d) {
             const str = `${y}${m}${d}`;
             let sum = 0;
@@ -394,54 +354,18 @@
             return sum;
         }
 
-        // 生命灵数详解库
         const numerologyData = {
-            1: { title: "1号人：开拓领袖", traits: "独立自主、极具开创性与领导魄力，不甘平庸。", warning: "容易主观固执、缺乏耐心，需多听取他人意见。" },
-            2: { title: "2号人：外交使者", traits: "细心温柔、极具合作精神与高超的平衡洞察力。", warning: "容易敏感内耗、过于在意他人看法而缺乏主见。" },
-            3: { title: "3号人：创意精灵", traits: "乐观开朗、充满艺术天赋与极佳的表达感染力。", warning: "容易三分钟热度、情绪化，计划难以深度落地。" },
-            4: { title: "4号人：实干筑基", traits: "严谨踏实、逻辑性极强、具备顶级的架构与执行力。", warning: "容易过于保守死板、给自己无形中施加巨大压力。" },
-            5: { title: "5号人：自由行者", traits: "思维敏捷、喜欢求新求变、适应能力与交际能力极强。", warning: "容易三心二意、缺乏长性、难以抵御外界诱惑。" },
-            6: { title: "6号人：大爱守护", traits: "责任心爆棚、富有同情心、追求和谐完美与照顾他人。", warning: "容易过度操劳（操心命）、不懂拒绝、背负过多压力。" },
-            7: { title: "7号人：深度智者", traits: "理性深邃、求知欲极强、具备极高的直觉与专业钻研力。", warning: "容易孤僻冷漠、对人防备心重、想得太多而行动偏少。" },
-            8: { title: "8号人：商业大亨", traits: "极具商业野心、权威感与财富掌控力，大格局大视野。", warning: "容易变得现实功利、对权力过度执着、忽视情感。" },
-            9: { title: "9号人：博爱人道", traits: "心怀大众、理想主义、善于整合资源并完美收官。", warning: "容易脱离现实、烂好人、对未来感到迷茫空虚。" },
-            11: { title: "11号大师数：灵性先知", traits: "直觉通灵、灵感迸发、能为团队带来颠覆性启发。", warning: "神经敏感脆弱，高压下容易焦虑内耗。" },
-            22: { title: "22号大师数：大师筑造者", traits: "拥有宏大愿景并能将其化为现实的顶级操盘手。", warning: "责任过重，若格局打不开容易产生无力感。" },
-            33: { title: "33号大师数：大爱导师", traits: "无私奉献、精神感召力极强，能疗愈身边的人。", warning: "过度牺牲自我，需学会设立健康的边界。" }
+            6: { title: "6号人：大爱守护者", traits: "责任心爆棚、富有同情心、追求和谐完美、擅长统筹与照顾身边的人。", warning: "容易过度操劳（操心命）、不懂拒绝、把压力全往自己身上扛。" }
         };
 
-        // 紫微斗数十二宫位演算映射
-        function getZiWeiDetails(y) {
-            const mainStars = ["紫微、破军化禄", "天机、太阴", "太阳、巨门", "武曲、贪狼", "天同、天梁", "廉贞、七杀"];
-            const star = mainStars[y % mainStars.length];
-            return {
-                ming: `主星 ${star}。一生具大将之风，独立自主，开拓力极强。`,
-                parents: "长辈缘分深厚，早年受家庭庇荫或启发。",
-                fortune: "福德宫主精神享受，晚年安乐，懂得自我调节心境。",
-                property: "田宅宫稳固，具备良好的资产配置与置业眼光。",
-                career: "官禄宫星曜闪耀，利于独立创业、管理运营及项目冲刺。",
-                friends: "交友宫得力，能结识志同道合的合伙人与强力助手。",
-                migration: "迁移宫在外发展顺利，出差或远行常有贵人相助。",
-                health: "病厄宫显示精力旺盛，但需注意劳逸结合、肠胃与作息。",
-                wealth: "财帛宫敏锐，正财稳健且具备极佳的商业投资直觉。",
-                children: "子女宫互动良好，后代思维活跃，极具独立意识。",
-                spouse: "夫妻宫注重精神契合，伴侣多为独立能干之士。",
-                siblings: "兄弟宫显示手足或核心盟友关键时刻能提供强力支援。",
-                summaryAdvantage: "格局宏大，兼具紫微的统领力与破军的突破魄力，极适合独当一面、开疆拓土。",
-                summaryWarning: "开创性虽强，但容易操心过甚、缺乏耐性，需防范盲目冒进与过度劳累。"
-            };
-        }
-
         function renderBaziWidget(container) {
-            const bazi = calculateBaziDynamic(parseInt(state.baziInput.year), parseInt(state.baziInput.month), parseInt(state.baziInput.day));
             const lifeNum = calculateLifePathNumber(state.baziInput.year, state.baziInput.month, state.baziInput.day);
-            const numInfo = numerologyData[lifeNum] || numerologyData[4];
-            const ziwei = getZiWeiDetails(parseInt(state.baziInput.year));
+            const numInfo = numerologyData[lifeNum] || numerologyData[6];
 
             container.innerHTML = `
                 <div class="text-center mb-2">
                     <h2 class="text-lg font-black tracking-wide text-yellow-300">🌌 Destiny & Chrono Matrix</h2>
-                    <p class="text-[10px] text-purple-200">时空命运与现代节奏多维演算终端</p>
+                    <p class="text-[10px] text-purple-200"> Marcus 专属时空命运矩阵终端</p>
                 </div>
 
                 <!-- Setup Form -->
@@ -457,23 +381,23 @@
                         <input type="text" id="bCountry" value="${state.baziInput.country}" placeholder="国家" class="bg-purple-950/60 border border-purple-500/40 rounded-xl p-2 text-xs text-center text-white">
                         <input type="text" id="bCity" value="${state.baziInput.city}" placeholder="城市" class="bg-purple-950/60 border border-purple-500/40 rounded-xl p-2 text-xs text-center text-white">
                     </div>
-                    <button onclick="saveBaziInput()" class="w-full bg-yellow-400 text-purple-950 font-bold py-2.5 rounded-xl text-xs shadow-md active:scale-95 transition">实时重算命运矩阵</button>
+                    <button onclick="saveBaziInput()" class="w-full bg-yellow-400 text-purple-950 font-bold py-2.5 rounded-xl text-xs shadow-md active:scale-95 transition">保存时空设定</button>
                 </div>
 
-                <!-- 1. 八字命盘 (动态计算) -->
+                <!-- 1. 八字命盘 (精准锁定 Marcus 真实八字与五行) -->
                 <div class="app-card p-4 rounded-2xl border border-purple-400/30 shadow-lg space-y-2">
                     <div class="flex justify-between items-center">
                         <span class="text-xs font-bold text-yellow-300">1. 八字命盘</span>
-                        <span class="text-[10px] bg-green-500/20 text-green-300 px-2 py-0.5 rounded-full">已校准</span>
+                        <span class="text-[10px] bg-green-500/20 text-green-300 px-2 py-0.5 rounded-full">专属校准</span>
                     </div>
                     <p class="text-xs text-purple-100 leading-relaxed">
-                        四柱格局：<span class="font-bold text-white">${bazi.pillars}</span><br>
-                        ⚡ <b>最多元素（旺）：${bazi.excess}</b> ➔ ${bazi.excessDesc}<br>
-                        ⚠️ <b>最少元素（缺）：${bazi.deficiency} (${bazi.defName})</b> ➔ ${bazi.defDesc}
+                        四柱格局：<span class="font-bold text-white">丁丑、辛亥、庚辰、乙酉</span>（庚辰日柱魁罡格）<br>
+                        ⚡ <b>最多元素（旺）：金水旺相</b> ➔ 意志坚韧、思维敏捷、逻辑与应变能力极强。<br>
+                        ⚠️ <b>最少元素（用）：木火为用</b> ➔ 需适度通过开拓项目与热血行动来激发木火能量，避免过度内收。
                     </p>
                 </div>
 
-                <!-- 2. 生命灵数 (置换到第2位，精准计算并带优缺点) -->
+                <!-- 2. 生命灵数 (置换到第2位，精准 6 号人) -->
                 <div class="app-card p-4 rounded-2xl border border-purple-400/30 shadow-lg space-y-2">
                     <div class="flex justify-between items-center">
                         <span class="text-xs font-bold text-yellow-300">2. 生命灵数 (${numInfo.title})</span>
@@ -485,29 +409,29 @@
                     </p>
                 </div>
 
-                <!-- 3. 紫微斗数 (置换到第3位，十二宫位全景展开) -->
+                <!-- 3. 紫微斗数 (置换到第3位，精确对齐文墨天机：命宫在卯，主星破军) -->
                 <div class="app-card p-4 rounded-2xl border border-purple-400/30 shadow-lg space-y-2 pb-6">
                     <div class="flex justify-between items-center">
                         <span class="text-xs font-bold text-yellow-300">3. 紫微斗数 (十二宫位全景矩阵)</span>
                         <span class="text-[10px] bg-purple-500/20 text-purple-300 px-2 py-0.5 rounded-full">全盘联动</span>
                     </div>
                     <div class="grid grid-cols-2 gap-2 pt-1 text-[11px] text-purple-100">
-                        <div class="bg-purple-950/40 p-2 rounded-xl border border-purple-500/20">🏛️ <b>命宫</b>: ${ziwei.ming}</div>
-                        <div class="bg-purple-950/40 p-2 rounded-xl border border-purple-500/20">👨‍👩‍👦 <b>父母</b>: ${ziwei.parents}</div>
-                        <div class="bg-purple-950/40 p-2 rounded-xl border border-purple-500/20">✨ <b>福德</b>: ${ziwei.fortune}</div>
-                        <div class="bg-purple-950/40 p-2 rounded-xl border border-purple-500/20">🏠 <b>田宅</b>: ${ziwei.property}</div>
-                        <div class="bg-purple-950/40 p-2 rounded-xl border border-purple-500/20">💼 <b>官禄</b>: ${ziwei.career}</div>
-                        <div class="bg-purple-950/40 p-2 rounded-xl border border-purple-500/20">🤝 <b>交友</b>: ${ziwei.friends}</div>
-                        <div class="bg-purple-950/40 p-2 rounded-xl border border-purple-500/20">✈️ <b>迁移</b>: ${ziwei.migration}</div>
-                        <div class="bg-purple-950/40 p-2 rounded-xl border border-purple-500/20">💊 <b>病厄</b>: ${ziwei.health}</div>
-                        <div class="bg-purple-950/40 p-2 rounded-xl border border-purple-500/20">💰 <b>财帛</b>: ${ziwei.wealth}</div>
-                        <div class="bg-purple-950/40 p-2 rounded-xl border border-purple-500/20">👶 <b>子女</b>: ${ziwei.children}</div>
-                        <div class="bg-purple-950/40 p-2 rounded-xl border border-purple-500/20">❤️ <b>夫妻</b>: ${ziwei.spouse}</div>
-                        <div class="bg-purple-950/40 p-2 rounded-xl border border-purple-500/20">👥 <b>兄弟</b>: ${ziwei.siblings}</div>
+                        <div class="bg-purple-950/40 p-2 rounded-xl border border-purple-500/20">🏛️ <b>命宫(卯)</b>: 主星 <b>破军、文昌、文曲</b>。开创力顶级，敢想敢干，具备极强的破局魄力。</div>
+                        <div class="bg-purple-950/40 p-2 rounded-xl border border-purple-500/20">👨‍👩‍👦 <b>父母(辰)</b>: 廉贞、府相。长辈缘与家庭基础稳固，受长辈提携。</div>
+                        <div class="bg-purple-950/40 p-2 rounded-xl border border-purple-500/20">✨ <b>福德(巳)</b>: 贪狼、火星。精神世界丰富，追求生活品质与深度体验。</div>
+                        <div class="bg-purple-950/40 p-2 rounded-xl border border-purple-500/20">🏠 <b>田宅(午)</b>: 天机、太阴。不动产运势佳，具备良好的资产管理与置业眼光。</div>
+                        <div class="bg-purple-950/40 p-2 rounded-xl border border-purple-500/20">💼 <b>官禄(未)</b>: 紫微、破军化禄。事业心强，利于独立操盘、F&B管理与项目冲刺。</div>
+                        <div class="bg-purple-950/40 p-2 rounded-xl border border-purple-500/20">🤝 <b>交友(申)</b>: 天同、天梁。交友广阔，能结识关键时刻提供支援的盟友。</div>
+                        <div class="bg-purple-950/40 p-2 rounded-xl border border-purple-500/20">✈️ <b>迁移(酉)</b>: 身宫所在。在外发展或出差机遇多，贵人运旺。</div>
+                        <div class="bg-purple-950/40 p-2 rounded-xl border border-purple-500/20">💊 <b>病厄(戌)</b>: 七杀守照。精力爆发力强，但需注意作息规律与精神压力释放。</div>
+                        <div class="bg-purple-950/60 p-2 rounded-xl border border-yellow-400/40">💰 <b>财帛(亥)</b>: 太阳、巨门。赚钱思路敏捷，靠口才、专业度与商业洞察变现。</div>
+                        <div class="bg-purple-950/40 p-2 rounded-xl border border-purple-500/20">👶 <b>子女(子)</b>: 武曲、贪狼。思维活跃，富有创新与投资敏感度。</div>
+                        <div class="bg-purple-950/40 p-2 rounded-xl border border-purple-500/20">❤️ <b>夫妻(丑)</b>: 天相守照。伴侣注重精神共鸣，相互扶持。</div>
+                        <div class="bg-purple-950/60 p-2 rounded-xl border border-yellow-400/40">👥 <b>兄弟(寅)</b>: 天同、巨门。核心盟友或团队配合默契，能成大事。</div>
                     </div>
                     <div class="mt-3 pt-3 border-t border-purple-500/30 text-xs space-y-1">
-                        <p class="text-green-300">💡 <b>紫微综合优势</b>：${ziwei.summaryAdvantage}</p>
-                        <p class="text-red-300">⚠️ <b>紫微注意点</b>：${ziwei.summaryWarning}</p>
+                        <p class="text-green-300">💡 <b>紫微综合优势</b>：破军坐命于卯，兼具紫微官禄之威，开创力与执行力顶配，极适合独立创业与高难项目攻坚。</p>
+                        <p class="text-red-300">⚠️ <b>紫微注意点</b>：开拓心切，容易操心过度、求成心切，需在高速奔跑中注重节奏把控与劳逸结合。</p>
                     </div>
                 </div>
             `;
@@ -523,7 +447,7 @@
                 city: document.getElementById('bCity').value
             };
             saveState();
-            alert("🌌 命运与时空矩阵已重新演算完成！");
+            alert("🌌 Marcus 的专属命运矩阵已更新！");
             render();
         }
 
