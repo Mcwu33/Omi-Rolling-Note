@@ -59,7 +59,7 @@
         </button>
         <button onclick="switchPage(2)" id="navBtn2" class="flex flex-col items-center text-purple-300 hover:text-white transition">
             <span class="text-xl">🔮</span>
-            <span class="text-[10px] mt-1 font-semibold">Bazi & Rhythm</span>
+            <span class="text-[10px] mt-1 font-semibold">Matrix</span>
         </button>
         <button onclick="switchPage(3)" id="navBtn3" class="flex flex-col items-center text-purple-300 hover:text-white transition">
             <span class="text-xl">👤</span>
@@ -67,7 +67,7 @@
         </button>
     </div>
 
-    <!-- 📅 点击日历弹出的“已完成历史清单”模态框 -->
+    <!-- 📅 点击日历弹出的“已完成历史待办档案”模态框 -->
     <div id="calendarModal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex flex-col justify-end">
         <div class="app-card rounded-t-3xl p-6 border-t border-yellow-400/30 max-h-[75vh] flex flex-col">
             <div class="flex justify-between items-center mb-4 border-b border-purple-500/30 pb-3">
@@ -274,22 +274,12 @@
         }
 
         function updateMemo(val) { state.memoText = val; saveState(); }
-        
         function addTodoItem() {
             const text = prompt("请输入新的待办事项:");
             if (!text) return;
             const date = prompt("请输入日期 (格式 YYYY-MM-DD):", new Date().toISOString().split('T')[0]);
-            
-            // 记录精确创建时间戳
             const createdAtStr = new Date().toLocaleString('zh-CN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-            
-            state.todos.push({ 
-                id: Date.now(), 
-                text, 
-                completed: false, 
-                date: date || "今日",
-                createdAt: createdAtStr // 新增：保存建立时间
-            });
+            state.todos.push({ id: Date.now(), text, completed: false, date: date || "今日", createdAt: createdAtStr });
             saveState(); render();
         }
 
@@ -304,18 +294,13 @@
             }
         }
 
-        // 勾选完成：记录完成时间，并保留建立时间
         function completeTodo(id) {
             const index = state.todos.findIndex(t => t.id === id);
             if (index !== -1) {
                 const finishedItem = state.todos[index];
                 finishedItem.completed = true;
-                // 如果之前老数据没有 createdAt，给个默认兜底
-                if (!finishedItem.createdAt) {
-                    finishedItem.createdAt = finishedItem.date || "未知时间";
-                }
+                if (!finishedItem.createdAt) finishedItem.createdAt = finishedItem.date || "未知时间";
                 finishedItem.finishedAt = new Date().toLocaleString('zh-CN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-                
                 state.completedTodos.unshift(finishedItem);
                 state.todos.splice(index, 1);
                 saveState();
@@ -325,7 +310,6 @@
 
         function deleteTodo(id) { state.todos = state.todos.filter(t => t.id !== id); saveState(); render(); }
 
-        // ================= 日历历史档案弹窗逻辑 (展示 建立于 & 完成于) =================
         function openCalendarModal() {
             const container = document.getElementById('completedHistoryList');
             if (state.completedTodos.length === 0) {
@@ -347,25 +331,122 @@
             document.getElementById('calendarModal').classList.remove('hidden');
         }
 
-        function closeCalendarModal() {
-            document.getElementById('calendarModal').classList.add('hidden');
+        function closeCalendarModal() { document.getElementById('calendarModal').classList.add('hidden'); }
+        function deleteCompletedHistory(id) { state.completedTodos = state.completedTodos.filter(item => item.id !== id); saveState(); openCalendarModal(); }
+
+
+        // ================= PAGE 2: DESTINY & CHRONO MATRIX (动态玄学演算引擎) =================
+        
+        // 动态根据年月日计算天干地支简易模拟与五行强弱
+        function calculateBaziDynamic(y, m, d) {
+            const stems = ["甲", "乙", "丙", "丁", "戊", "己", "庚", "辛", "壬", "癸"];
+            const branches = ["子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥"];
+            
+            let yIdx = (y - 4) % 10;
+            let bIdx = (y - 4) % 12;
+            if (yIdx < 0) yIdx += 10;
+            if (bIdx < 0) bIdx += 12;
+
+            const yearPillar = stems[yIdx] + branches[bIdx];
+            const monthPillar = stems[(y * 2 + m) % 10] + branches[(m + 1) % 12];
+            const dayPillar = stems[(d + y) % 10] + branches[(d + 4) % 12];
+            const timePillar = "乙酉"; // 默认时柱
+
+            // 动态五行统计模拟
+            const elementsPool = ["金", "木", "水", "火", "土", "金", "水"];
+            const excess = elementsPool[(y + m) % 5];
+            const deficiency = elementsPool[(d * 2) % 5];
+
+            const analysisMap = {
+                "金": { excessName: "金气肃杀刚健", excessDesc: "果断坚决、执行力极强、对逻辑与财务极度敏感。", defName: "木火偏弱", defDesc: "需适当补充温和包容力，避免过度严苛。" },
+                "木": { excessName: "木气生发蓬勃", excessDesc: "极具创造力、开拓精神与成长规划能力。", defName: "金气偏弱", defDesc: "需增强收敛与决断力，做事切忌犹豫不决。" },
+                "水": { excessName: "水势灵动深邃", excessDesc: "思维敏捷、适应能力顶级、具备高超的直觉。", defName: "土气偏弱", defDesc: "需加强根基稳固性，避免思虑过多而缺乏落地。" },
+                "火": { excessName: "火势热烈光明", excessDesc: "充满激情与号召力，能迅速点燃团队与项目。", defName: "水气偏弱", defDesc: "需注意劳逸结合，避免过度消耗精力冲动行事。" },
+                "土": { excessName: "土信厚重稳健", excessDesc: "极强的承载力与资源整合能力，稳扎稳打。", defName: "木气偏弱", defDesc: "需适度激发创新变革思维，防止过于保守。" }
+            };
+
+            const info = analysisMap[excess] || analysisMap["金"];
+
+            return {
+                pillars: `${yearPillar}、${monthPillar}、${dayPillar}、${timePillar}`,
+                excess: excess,
+                excessDesc: info.excessDesc,
+                deficiency: deficiency,
+                defName: info.defName,
+                defDesc: info.defDesc
+            };
         }
 
-        function deleteCompletedHistory(id) {
-            state.completedTodos = state.completedTodos.filter(item => item.id !== id);
-            saveState();
-            openCalendarModal();
+        // 精准计算生命灵数 (Sum of digits reduced to 1-9, 11, 22, 33)
+        function calculateLifePathNumber(y, m, d) {
+            const str = `${y}${m}${d}`;
+            let sum = 0;
+            for (let char of str) {
+                sum += parseInt(char) || 0;
+            }
+            while (sum > 9 && sum !== 11 && sum !== 22 && sum !== 33) {
+                let tempSum = 0;
+                for (let char of sum.toString()) {
+                    tempSum += parseInt(char) || 0;
+                }
+                sum = tempSum;
+            }
+            return sum;
         }
 
-        // ================= PAGE 2: BAZI & RHYTHM WIDGET =================
+        // 生命灵数详解库
+        const numerologyData = {
+            1: { title: "1号人：开拓领袖", traits: "独立自主、极具开创性与领导魄力，不甘平庸。", warning: "容易主观固执、缺乏耐心，需多听取他人意见。" },
+            2: { title: "2号人：外交使者", traits: "细心温柔、极具合作精神与高超的平衡洞察力。", warning: "容易敏感内耗、过于在意他人看法而缺乏主见。" },
+            3: { title: "3号人：创意精灵", traits: "乐观开朗、充满艺术天赋与极佳的表达感染力。", warning: "容易三分钟热度、情绪化，计划难以深度落地。" },
+            4: { title: "4号人：实干筑基", traits: "严谨踏实、逻辑性极强、具备顶级的架构与执行力。", warning: "容易过于保守死板、给自己无形中施加巨大压力。" },
+            5: { title: "5号人：自由行者", traits: "思维敏捷、喜欢求新求变、适应能力与交际能力极强。", warning: "容易三心二意、缺乏长性、难以抵御外界诱惑。" },
+            6: { title: "6号人：大爱守护", traits: "责任心爆棚、富有同情心、追求和谐完美与照顾他人。", warning: "容易过度操劳（操心命）、不懂拒绝、背负过多压力。" },
+            7: { title: "7号人：深度智者", traits: "理性深邃、求知欲极强、具备极高的直觉与专业钻研力。", warning: "容易孤僻冷漠、对人防备心重、想得太多而行动偏少。" },
+            8: { title: "8号人：商业大亨", traits: "极具商业野心、权威感与财富掌控力，大格局大视野。", warning: "容易变得现实功利、对权力过度执着、忽视情感。" },
+            9: { title: "9号人：博爱人道", traits: "心怀大众、理想主义、善于整合资源并完美收官。", warning: "容易脱离现实、烂好人、对未来感到迷茫空虚。" },
+            11: { title: "11号大师数：灵性先知", traits: "直觉通灵、灵感迸发、能为团队带来颠覆性启发。", warning: "神经敏感脆弱，高压下容易焦虑内耗。" },
+            22: { title: "22号大师数：大师筑造者", traits: "拥有宏大愿景并能将其化为现实的顶级操盘手。", warning: "责任过重，若格局打不开容易产生无力感。" },
+            33: { title: "33号大师数：大爱导师", traits: "无私奉献、精神感召力极强，能疗愈身边的人。", warning: "过度牺牲自我，需学会设立健康的边界。" }
+        };
+
+        // 紫微斗数十二宫位演算映射
+        function getZiWeiDetails(y) {
+            const mainStars = ["紫微、破军化禄", "天机、太阴", "太阳、巨门", "武曲、贪狼", "天同、天梁", "廉贞、七杀"];
+            const star = mainStars[y % mainStars.length];
+            return {
+                ming: `主星 ${star}。一生具大将之风，独立自主，开拓力极强。`,
+                parents: "长辈缘分深厚，早年受家庭庇荫或启发。",
+                fortune: "福德宫主精神享受，晚年安乐，懂得自我调节心境。",
+                property: "田宅宫稳固，具备良好的资产配置与置业眼光。",
+                career: "官禄宫星曜闪耀，利于独立创业、管理运营及项目冲刺。",
+                friends: "交友宫得力，能结识志同道合的合伙人与强力助手。",
+                migration: "迁移宫在外发展顺利，出差或远行常有贵人相助。",
+                health: "病厄宫显示精力旺盛，但需注意劳逸结合、肠胃与作息。",
+                wealth: "财帛宫敏锐，正财稳健且具备极佳的商业投资直觉。",
+                children: "子女宫互动良好，后代思维活跃，极具独立意识。",
+                spouse: "夫妻宫注重精神契合，伴侣多为独立能干之士。",
+                siblings: "兄弟宫显示手足或核心盟友关键时刻能提供强力支援。",
+                summaryAdvantage: "格局宏大，兼具紫微的统领力与破军的突破魄力，极适合独当一面、开疆拓土。",
+                summaryWarning: "开创性虽强，但容易操心过甚、缺乏耐性，需防范盲目冒进与过度劳累。"
+            };
+        }
+
         function renderBaziWidget(container) {
+            const bazi = calculateBaziDynamic(parseInt(state.baziInput.year), parseInt(state.baziInput.month), parseInt(state.baziInput.day));
+            const lifeNum = calculateLifePathNumber(state.baziInput.year, state.baziInput.month, state.baziInput.day);
+            const numInfo = numerologyData[lifeNum] || numerologyData[4];
+            const ziwei = getZiWeiDetails(parseInt(state.baziInput.year));
+
             container.innerHTML = `
                 <div class="text-center mb-2">
-                    <h2 class="text-lg font-black tracking-wide text-yellow-300">🔮 Bazi & Rhythm Widget</h2>
-                    <p class="text-[10px] text-purple-200">传统命理与现代节奏智能生成看板</p>
+                    <h2 class="text-lg font-black tracking-wide text-yellow-300">🌌 Destiny & Chrono Matrix</h2>
+                    <p class="text-[10px] text-purple-200">时空命运与现代节奏多维演算终端</p>
                 </div>
+
+                <!-- Setup Form -->
                 <div class="app-card p-4 rounded-2xl border border-purple-400/30 space-y-3 shadow-lg">
-                    <div class="text-xs font-bold text-yellow-300">📌 Bazi Astrology Setup</div>
+                    <div class="text-xs font-bold text-yellow-300">🗝️ Chrono-Bazi Genesis Setup</div>
                     <div class="grid grid-cols-3 gap-2">
                         <input type="text" id="bYear" value="${state.baziInput.year}" placeholder="出生年" class="bg-purple-950/60 border border-purple-500/40 rounded-xl p-2 text-xs text-center text-white">
                         <input type="text" id="bMonth" value="${state.baziInput.month}" placeholder="月" class="bg-purple-950/60 border border-purple-500/40 rounded-xl p-2 text-xs text-center text-white">
@@ -376,19 +457,58 @@
                         <input type="text" id="bCountry" value="${state.baziInput.country}" placeholder="国家" class="bg-purple-950/60 border border-purple-500/40 rounded-xl p-2 text-xs text-center text-white">
                         <input type="text" id="bCity" value="${state.baziInput.city}" placeholder="城市" class="bg-purple-950/60 border border-purple-500/40 rounded-xl p-2 text-xs text-center text-white">
                     </div>
-                    <button onclick="saveBaziInput()" class="w-full bg-yellow-400 text-purple-950 font-bold py-2.5 rounded-xl text-xs shadow-md active:scale-95 transition">保存并生成命盘解析</button>
+                    <button onclick="saveBaziInput()" class="w-full bg-yellow-400 text-purple-950 font-bold py-2.5 rounded-xl text-xs shadow-md active:scale-95 transition">实时重算命运矩阵</button>
                 </div>
+
+                <!-- 1. 八字命盘 (动态计算) -->
                 <div class="app-card p-4 rounded-2xl border border-purple-400/30 shadow-lg space-y-2">
-                    <div class="flex justify-between items-center"><span class="text-xs font-bold text-yellow-300">1. 八字命盘 (Bazi)</span><span class="text-[10px] bg-green-500/20 text-green-300 px-2 py-0.5 rounded-full">已校准</span></div>
-                    <p class="text-xs text-purple-100 leading-relaxed">四柱格局：<span class="font-bold text-white">丁丑、辛亥、庚辰、乙酉</span><br>五行强弱分析：金水旺相，木火为用。</p>
+                    <div class="flex justify-between items-center">
+                        <span class="text-xs font-bold text-yellow-300">1. 八字命盘</span>
+                        <span class="text-[10px] bg-green-500/20 text-green-300 px-2 py-0.5 rounded-full">已校准</span>
+                    </div>
+                    <p class="text-xs text-purple-100 leading-relaxed">
+                        四柱格局：<span class="font-bold text-white">${bazi.pillars}</span><br>
+                        ⚡ <b>最多元素（旺）：${bazi.excess}</b> ➔ ${bazi.excessDesc}<br>
+                        ⚠️ <b>最少元素（缺）：${bazi.deficiency} (${bazi.defName})</b> ➔ ${bazi.defDesc}
+                    </p>
                 </div>
+
+                <!-- 2. 生命灵数 (置换到第2位，精准计算并带优缺点) -->
                 <div class="app-card p-4 rounded-2xl border border-purple-400/30 shadow-lg space-y-2">
-                    <div class="flex justify-between items-center"><span class="text-xs font-bold text-yellow-300">2. 紫微斗数</span><span class="text-[10px] bg-purple-500/20 text-purple-300 px-2 py-0.5 rounded-full">主星联动</span></div>
-                    <p class="text-xs text-purple-100 leading-relaxed">命宫主星：紫微、破军化禄。运势节奏：开拓项目顺利。</p>
+                    <div class="flex justify-between items-center">
+                        <span class="text-xs font-bold text-yellow-300">2. 生命灵数 (${numInfo.title})</span>
+                        <span class="text-[10px] bg-yellow-500/20 text-yellow-300 px-2 py-0.5 rounded-full">能量频段</span>
+                    </div>
+                    <p class="text-xs text-purple-100 leading-relaxed">
+                        ✨ <b>性格特质与核心优势</b>：${numInfo.traits}<br>
+                        ⚠️ <b>盲点与修行提醒</b>：${numInfo.warning}
+                    </p>
                 </div>
+
+                <!-- 3. 紫微斗数 (置换到第3位，十二宫位全景展开) -->
                 <div class="app-card p-4 rounded-2xl border border-purple-400/30 shadow-lg space-y-2 pb-6">
-                    <div class="flex justify-between items-center"><span class="text-xs font-bold text-yellow-300">3. 生命灵数</span><span class="text-[10px] bg-yellow-500/20 text-yellow-300 px-2 py-0.5 rounded-full">能量频段</span></div>
-                    <p class="text-xs text-purple-100 leading-relaxed">核心数字：<span class="font-bold text-white">主命数 4</span>（严谨结构、实干筑基）</p>
+                    <div class="flex justify-between items-center">
+                        <span class="text-xs font-bold text-yellow-300">3. 紫微斗数 (十二宫位全景矩阵)</span>
+                        <span class="text-[10px] bg-purple-500/20 text-purple-300 px-2 py-0.5 rounded-full">全盘联动</span>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2 pt-1 text-[11px] text-purple-100">
+                        <div class="bg-purple-950/40 p-2 rounded-xl border border-purple-500/20">🏛️ <b>命宫</b>: ${ziwei.ming}</div>
+                        <div class="bg-purple-950/40 p-2 rounded-xl border border-purple-500/20">👨‍👩‍👦 <b>父母</b>: ${ziwei.parents}</div>
+                        <div class="bg-purple-950/40 p-2 rounded-xl border border-purple-500/20">✨ <b>福德</b>: ${ziwei.fortune}</div>
+                        <div class="bg-purple-950/40 p-2 rounded-xl border border-purple-500/20">🏠 <b>田宅</b>: ${ziwei.property}</div>
+                        <div class="bg-purple-950/40 p-2 rounded-xl border border-purple-500/20">💼 <b>官禄</b>: ${ziwei.career}</div>
+                        <div class="bg-purple-950/40 p-2 rounded-xl border border-purple-500/20">🤝 <b>交友</b>: ${ziwei.friends}</div>
+                        <div class="bg-purple-950/40 p-2 rounded-xl border border-purple-500/20">✈️ <b>迁移</b>: ${ziwei.migration}</div>
+                        <div class="bg-purple-950/40 p-2 rounded-xl border border-purple-500/20">💊 <b>病厄</b>: ${ziwei.health}</div>
+                        <div class="bg-purple-950/40 p-2 rounded-xl border border-purple-500/20">💰 <b>财帛</b>: ${ziwei.wealth}</div>
+                        <div class="bg-purple-950/40 p-2 rounded-xl border border-purple-500/20">👶 <b>子女</b>: ${ziwei.children}</div>
+                        <div class="bg-purple-950/40 p-2 rounded-xl border border-purple-500/20">❤️ <b>夫妻</b>: ${ziwei.spouse}</div>
+                        <div class="bg-purple-950/40 p-2 rounded-xl border border-purple-500/20">👥 <b>兄弟</b>: ${ziwei.siblings}</div>
+                    </div>
+                    <div class="mt-3 pt-3 border-t border-purple-500/30 text-xs space-y-1">
+                        <p class="text-green-300">💡 <b>紫微综合优势</b>：${ziwei.summaryAdvantage}</p>
+                        <p class="text-red-300">⚠️ <b>紫微注意点</b>：${ziwei.summaryWarning}</p>
+                    </div>
                 </div>
             `;
         }
@@ -403,7 +523,7 @@
                 city: document.getElementById('bCity').value
             };
             saveState();
-            alert("🔮 Bazi & Rhythm 设定已更新！");
+            alert("🌌 命运与时空矩阵已重新演算完成！");
             render();
         }
 
@@ -533,7 +653,7 @@
                         text: text, 
                         completed: false, 
                         date: new Date().toISOString().split('T')[0],
-                        createdAt: createdAtStr // Max 添加时也记录创建时间
+                        createdAt: createdAtStr
                     });
                     saveState();
                     aiReply = `✅ 收到！我已为您自动添加至 <b class="text-yellow-300">To-do-List</b>：<br>“${text}”`;
