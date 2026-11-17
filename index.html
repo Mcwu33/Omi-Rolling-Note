@@ -23,8 +23,6 @@
         .bubble-anim {
             animation: floatBubble 3s ease-in-out infinite;
         }
-
-        /* 🔥 动态火花/流光边框特效 */
         @keyframes fireBorder {
             0% { border-color: rgba(250, 204, 21, 0.4); box-shadow: 0 0 10px rgba(250, 204, 21, 0.1); }
             50% { border-color: rgba(249, 115, 22, 0.8); box-shadow: 0 0 18px rgba(249, 115, 22, 0.3); }
@@ -39,17 +37,15 @@
 <body class="flex flex-col h-screen justify-between max-w-md mx-auto text-white overflow-hidden">
 
     <!-- 主内容区域 -->
-    <div id="mainContent" class="flex-1 overflow-y-auto p-4 space-y-4 pb-20">
-        <!-- 动态渲染页面 -->
-    </div>
+    <div id="mainContent" class="flex-1 overflow-y-auto p-4 space-y-4 pb-20"></div>
 
     <!-- 隐藏的手机相册文件上传选择器 -->
     <input type="file" id="avatarFileInput" accept="image/*" class="hidden" onchange="handleImageUpload(event)">
 
-    <!-- 底部悬浮 AI 秘书 (Max) 右下角 + 随机气泡 -->
+    <!-- 底部悬浮 AI 秘书 (Max) 右下角 + 智能催促气泡 -->
     <div class="fixed right-6 bottom-20 flex items-center space-x-2 z-40">
         <div id="maxGreetingBubble" onclick="openMaxChat()" class="bubble-anim app-card px-3.5 py-2 rounded-2xl border border-yellow-400/50 shadow-xl cursor-pointer text-[11px] text-yellow-300 font-semibold tracking-wide whitespace-nowrap active:scale-95 transition">
-            <!-- 随机问候 -->
+            <!-- 动态催促语由 JS 填充 -->
         </div>
         <div onclick="openMaxChat()" class="w-12 h-12 bg-yellow-400 rounded-full shadow-2xl flex items-center justify-center cursor-pointer border-2 border-purple-950 active:scale-95 transition group relative" title="Secretary AI: Max">
             <span class="text-xl">🤖</span>
@@ -86,9 +82,7 @@
             <button onclick="closeMaxChat()" class="text-purple-300 hover:text-white text-xl font-bold p-2">✕</button>
         </div>
 
-        <div id="maxChatBox" class="flex-1 overflow-y-auto space-y-3 my-4 pr-1 text-xs text-purple-100">
-            <!-- 聊天记录 -->
-        </div>
+        <div id="maxChatBox" class="flex-1 overflow-y-auto space-y-3 my-4 pr-1 text-xs text-purple-100"></div>
 
         <div id="maxActionArea" class="space-y-3 pt-2">
             <div id="maxOptions" class="grid grid-cols-2 gap-3">
@@ -110,7 +104,7 @@
     </div>
 
     <script>
-        // --- 核心全局状态数据 ---
+        // --- 核心全局状态数据与智能登录检测 ---
         let state = {
             currentPage: 1,
             userProfile: {
@@ -128,20 +122,48 @@
 
         let maxState = { mode: null, messages: [] };
 
-        const greetings = [
-            "Hello, what to do boss? 🫡",
-            "How are you today, Boss? ✨",
-            "What can I help you with? 💡",
-            "Ready to crush some goals? 🚀",
-            "Boss, need any F&B updates? 📊",
-            "Let's make today productive! 🔥"
-        ];
+        // 检查并记录今天是否登录过
+        function checkDailyLoginStatus() {
+            const todayStr = new Date().toDateString(); // 例如 "Wed Nov 18 2026"
+            const lastLoginDate = localStorage.getItem('omi_last_login_date');
+            const hour = new Date().getHours();
 
+            let activeNotice = null;
+
+            // 如果今天还没记录过登录
+            if (lastLoginDate !== todayStr) {
+                if (hour >= 8 && hour < 12) {
+                    activeNotice = "🔥 老板早安！您还没检查今天要干嘛，盘看了吗？";
+                } else if (hour >= 22 || hour < 2) {
+                    activeNotice = "🌙 老板，店里需要下订单吗？明天的工作准备好了吗？";
+                }
+            }
+
+            // 更新今天的最后登录日期
+            localStorage.setItem('omi_last_login_date', todayStr);
+            return activeNotice;
+        }
+
+        // 智能生成气泡文案（优先展示未登录的主动催促，否则随机日常问候）
         function initRandomGreeting() {
             const bubble = document.getElementById('maxGreetingBubble');
-            if (bubble) {
-                bubble.innerText = greetings[Math.floor(Math.random() * greetings.length)];
+            if (!bubble) return;
+
+            const urgentNotice = checkDailyLoginStatus();
+            if (urgentNotice) {
+                bubble.innerText = urgentNotice;
+                return;
             }
+
+            const greetings = [
+                "Hello, what to do boss? 🫡",
+                "How are you today, Boss? ✨",
+                "What can I help you with? 💡",
+                "Ready to crush some goals? 🚀",
+                "Boss, need any F&B updates? 📊",
+                "Let's make today productive! 🔥"
+            ];
+            bubble.innerText = greetings[Math.floor(Math.random() * greetings.length)];
         }
 
         function saveState() {
@@ -171,12 +193,9 @@
             initRandomGreeting();
         }
 
-        // --- 动态生成高能能量流文案 (根据时间自动切换并加粗) ---
         function renderEnergyFlowCard() {
             const hour = new Date().getHours();
             let flowText = "";
-            let flowTitle = "TIME & ENERGY FLOW";
-
             if (hour >= 8 && hour < 12) {
                 flowText = "🔥 <b>早安蓄力！BUFF叠满直接暴击</b> ➔ 盘点验收拉满执行力，顺便查缺补漏扫荡采购清单！";
             } else if (hour >= 12 && hour < 19) {
@@ -186,10 +205,9 @@
             } else {
                 flowText = "🚀 <b>深夜灵感暴走！</b> ➔ 盯盘复盘、Debug 狂飙、供应链下单，顺便复盘整天高光时刻！";
             }
-
             return `
                 <div class="app-card fire-card p-3.5 rounded-2xl text-center shadow-xl">
-                    <div class="text-[10px] text-yellow-300 uppercase tracking-widest font-extrabold mb-1">⚡ ${flowTitle}</div>
+                    <div class="text-[10px] text-yellow-300 uppercase tracking-widest font-extrabold mb-1">⚡ TIME & ENERGY FLOW</div>
                     <div class="text-xs text-purple-100 leading-relaxed">${flowText}</div>
                 </div>
             `;
@@ -198,7 +216,6 @@
         // ================= PAGE 1: DASHBOARD =================
         function renderDashboard(container) {
             const todayStr = new Date().toLocaleDateString('zh-CN', { month: 'short', day: 'numeric', weekday: 'short' });
-            
             container.innerHTML = `
                 <div class="flex justify-between items-center">
                     <div class="flex items-center space-x-3">
@@ -211,7 +228,6 @@
                     </div>
                 </div>
 
-                <!-- 动态高能能量流组件 (带动态火花边框) -->
                 ${renderEnergyFlowCard()}
 
                 <div class="app-card p-3 rounded-2xl border border-purple-400/30 flex flex-col h-36 shadow-lg">
