@@ -16,6 +16,14 @@
             background: rgba(60, 42, 90, 0.7);
             backdrop-filter: blur(10px);
         }
+        /* 气泡呼吸动画 */
+        @keyframes floatBubble {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-4px); }
+        }
+        .bubble-anim {
+            animation: floatBubble 3s ease-in-out infinite;
+        }
     </style>
 </head>
 <body class="flex flex-col h-screen justify-between max-w-md mx-auto text-white overflow-hidden">
@@ -25,10 +33,18 @@
         <!-- 动态渲染页面 -->
     </div>
 
-    <!-- 底部悬浮 AI 秘书 (Max) 右下角 -->
-    <div onclick="openMaxChat()" class="fixed right-6 bottom-20 w-12 h-12 bg-yellow-400 rounded-full shadow-2xl flex items-center justify-center cursor-pointer border-2 border-purple-950 active:scale-95 transition z-40 group" title="Secretary AI: Max">
-        <span class="text-xl">🤖</span>
-        <span class="absolute -top-1 -right-1 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-purple-950"></span>
+    <!-- 底部悬浮 AI 秘书 (Max) 右下角 + 随机气泡 -->
+    <div class="fixed right-6 bottom-20 flex items-center space-x-2 z-40">
+        <!-- 随机冒出的对话气泡 -->
+        <div id="maxGreetingBubble" onclick="openMaxChat()" class="bubble-anim app-card px-3.5 py-2 rounded-2xl border border-yellow-400/50 shadow-xl cursor-pointer text-[11px] text-yellow-300 font-semibold tracking-wide whitespace-nowrap active:scale-95 transition">
+            <!-- 随机文字由 JS 填充 -->
+        </div>
+        
+        <!-- Max 头像图标 -->
+        <div onclick="openMaxChat()" class="w-12 h-12 bg-yellow-400 rounded-full shadow-2xl flex items-center justify-center cursor-pointer border-2 border-purple-950 active:scale-95 transition group relative" title="Secretary AI: Max">
+            <span class="text-xl">🤖</span>
+            <span class="absolute -top-1 -right-1 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-purple-950"></span>
+        </div>
     </div>
 
     <!-- 底部导航栏 (切换 3 个 Screen) -->
@@ -47,25 +63,41 @@
         </button>
     </div>
 
-    <!-- AI Max 弹窗交互层 -->
-    <div id="maxModal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex flex-col justify-end">
-        <div class="app-card rounded-t-3xl p-6 border-t border-purple-400/30 max-h-[70vh] flex flex-col">
-            <div class="flex justify-between items-center mb-4">
-                <div class="flex items-center space-x-2">
-                    <span class="text-2xl">🤖</span>
-                    <div>
-                        <h3 class="font-bold text-sm">Secretary Max</h3>
-                        <p class="text-[10px] text-purple-300">Your AI Personal Assistant</p>
-                    </div>
+    <!-- AI Max 全屏沉浸式交互层 -->
+    <div id="maxModal" class="hidden fixed inset-0 bg-[#4b3271] z-50 flex flex-col justify-between p-6">
+        <!-- Top Header -->
+        <div class="flex justify-between items-center border-b border-purple-500/30 pb-4">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 bg-yellow-400 rounded-full flex items-center justify-center text-xl shadow-lg">🤖</div>
+                <div>
+                    <h3 class="font-bold text-sm text-yellow-300">Secretary Max</h3>
+                    <p class="text-[10px] text-purple-200">AI 智能助理 • 随时待命</p>
                 </div>
-                <button onclick="closeMaxChat()" class="text-purple-300 hover:text-white text-lg font-bold px-2">✕</button>
             </div>
-            <div id="maxChatBox" class="flex-1 overflow-y-auto space-y-2 text-xs text-purple-100 bg-purple-950/40 p-3 rounded-2xl mb-4 h-40">
-                <p>💡 嗨老板！我是 Max，你的专属私家秘书。今天有什么灵感、待办或者需要我协助整理的吗？</p>
+            <button onclick="closeMaxChat()" class="text-purple-300 hover:text-white text-xl font-bold p-2">✕</button>
+        </div>
+
+        <!-- Chat History Box -->
+        <div id="maxChatBox" class="flex-1 overflow-y-auto space-y-3 my-4 pr-1 text-xs text-purple-100">
+            <!-- 动态渲染对话 -->
+        </div>
+
+        <!-- Action Area (选项按钮 / 输入框) -->
+        <div id="maxActionArea" class="space-y-3 pt-2">
+            <div id="maxOptions" class="grid grid-cols-2 gap-3">
+                <button onclick="selectMaxMode('todo')" class="app-card border border-yellow-400/50 hover:border-yellow-400 p-3.5 rounded-2xl text-center active:scale-95 transition shadow-lg">
+                    <div class="text-lg mb-1">📋</div>
+                    <div class="text-xs font-bold text-yellow-300">Help me To-Do</div>
+                </button>
+                <button onclick="selectMaxMode('memo')" class="app-card border border-yellow-400/50 hover:border-yellow-400 p-3.5 rounded-2xl text-center active:scale-95 transition shadow-lg">
+                    <div class="text-lg mb-1">📝</div>
+                    <div class="text-xs font-bold text-yellow-300">Quick memo</div>
+                </button>
             </div>
-            <div class="flex space-x-2">
-                <input type="text" id="maxInput" placeholder="输入你想吩咐 Max 的事..." class="flex-1 bg-purple-900/60 border border-purple-500/40 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-yellow-400">
-                <button onclick="sendToMax()" class="bg-yellow-400 text-purple-950 font-bold px-4 py-2.5 rounded-xl text-xs active:scale-95 transition">发送</button>
+
+            <div id="maxInputBox" class="hidden flex space-x-2">
+                <input type="text" id="maxInput" onkeydown="handleMaxKeydown(event)" placeholder="输入内容，按 Enter 发送..." class="flex-1 bg-purple-950/80 border border-purple-400/50 rounded-2xl px-4 py-3 text-xs text-white focus:outline-none focus:border-yellow-400 shadow-inner">
+                <button onclick="sendToMax()" class="bg-yellow-400 text-purple-950 font-bold px-5 py-3 rounded-2xl text-xs active:scale-95 transition shadow-lg">发送</button>
             </div>
         </div>
     </div>
@@ -93,6 +125,31 @@
             }
         };
 
+        // Max 对话状态机
+        let maxState = {
+            mode: null,
+            messages: []
+        };
+
+        // 随机问候语料库
+        const greetings = [
+            "Hello, what to do boss? 🫡",
+            "How are you today, Boss? ✨",
+            "What can I help you with? 💡",
+            "Ready to crush some goals? 🚀",
+            "Boss, need any F&B updates? 📊",
+            "Let's make today productive! 🔥"
+        ];
+
+        // 随机抽取一句问候语并渲染到气泡
+        function initRandomGreeting() {
+            const bubble = document.getElementById('maxGreetingBubble');
+            if (bubble) {
+                const randomText = greetings[Math.floor(Math.random() * greetings.length)];
+                bubble.innerText = randomText;
+            }
+        }
+
         function saveState() {
             localStorage.setItem('omi_memo', state.memoText);
             localStorage.setItem('omi_todos', JSON.stringify(state.todos));
@@ -117,6 +174,9 @@
             if (state.currentPage === 1) renderDashboard(container);
             else if (state.currentPage === 2) renderBaziWidget(container);
             else if (state.currentPage === 3) renderProfile(container);
+            
+            // 每次渲染完后，刷新一下随机气泡语
+            initRandomGreeting();
         }
 
         // ================= PAGE 1: DASHBOARD =================
@@ -124,7 +184,6 @@
             const todayStr = new Date().toLocaleDateString('zh-CN', { month: 'short', day: 'numeric', weekday: 'short' });
             
             container.innerHTML = `
-                <!-- Top Bar -->
                 <div class="flex justify-between items-center">
                     <div class="flex items-center space-x-3">
                         <img src="${state.userProfile.avatar}" class="w-10 h-10 rounded-full object-cover border-2 border-yellow-400 shadow-md">
@@ -136,19 +195,16 @@
                     </div>
                 </div>
 
-                <!-- Top Middle: Time & Energy Flow -->
                 <div class="app-card p-3 rounded-2xl border border-purple-400/30 text-center shadow-lg">
                     <div class="text-[10px] text-purple-300 uppercase tracking-widest font-bold">⚡ Time & Energy Flow</div>
                     <div class="text-xs font-bold text-yellow-300 mt-1">午后高效区 ➔ F&B 门店运营与代码冲刺中</div>
                 </div>
 
-                <!-- 1/3 Screen Empty Note -->
                 <div class="app-card p-3 rounded-2xl border border-purple-400/30 flex flex-col h-36 shadow-lg">
                     <div class="text-[10px] text-purple-300 font-semibold mb-1">📝 Quick Memo (速记备忘)</div>
                     <textarea id="memoInput" oninput="updateMemo(this.value)" placeholder="随时记录闪现灵感、临时想法..." class="flex-1 bg-transparent text-xs text-white placeholder-purple-400/65 resize-none focus:outline-none">${state.memoText}</textarea>
                 </div>
 
-                <!-- To-Do-List Section -->
                 <div class="space-y-2 pb-6">
                     <div class="flex justify-between items-center">
                         <h3 class="text-sm font-bold tracking-wide">To-do-List</h3>
@@ -156,7 +212,7 @@
                     </div>
 
                     <div id="todoListContainer" class="space-y-2">
-                        ${state.todos.map((todo, idx) => `
+                        ${state.todos.map((todo) => `
                             <div class="app-card p-3 rounded-xl border border-purple-500/30 flex items-center justify-between shadow-sm">
                                 <div class="flex items-center space-x-3 flex-1 mr-2">
                                     <input type="checkbox" onclick="completeTodo(${todo.id})" ${todo.completed ? 'checked' : ''} class="w-4 h-4 accent-yellow-400 cursor-pointer">
@@ -173,40 +229,22 @@
             `;
         }
 
-        function updateMemo(val) {
-            state.memoText = val;
-            saveState();
-        }
-
+        function updateMemo(val) { state.memoText = val; saveState(); }
         function addTodoItem() {
             const text = prompt("请输入新的待办事项:");
             if (!text) return;
             const date = prompt("请输入日期 (格式 YYYY-MM-DD):", new Date().toISOString().split('T')[0]);
             state.todos.push({ id: Date.now(), text, completed: false, date: date || "今日" });
-            saveState();
-            render();
+            saveState(); render();
         }
-
         function completeTodo(id) {
             const item = state.todos.find(t => t.id === id);
             if (item) {
-                item.completed = true;
-                saveState();
-                setTimeout(() => {
-                    // 勾选后移出看板，模拟存入日历
-                    state.todos = state.todos.filter(t => t.id !== id);
-                    saveState();
-                    render();
-                }, 300);
+                item.completed = true; saveState();
+                setTimeout(() => { state.todos = state.todos.filter(t => t.id !== id); saveState(); render(); }, 300);
             }
         }
-
-        function deleteTodo(id) {
-            state.todos = state.todos.filter(t => t.id !== id);
-            saveState();
-            render();
-        }
-
+        function deleteTodo(id) { state.todos = state.todos.filter(t => t.id !== id); saveState(); render(); }
 
         // ================= PAGE 2: BAZI & RHYTHM WIDGET =================
         function renderBaziWidget(container) {
@@ -215,8 +253,6 @@
                     <h2 class="text-lg font-black tracking-wide text-yellow-300">🔮 Bazi & Rhythm Widget</h2>
                     <p class="text-[10px] text-purple-200">传统命理与现代节奏智能生成看板</p>
                 </div>
-
-                <!-- Input Form -->
                 <div class="app-card p-4 rounded-2xl border border-purple-400/30 space-y-3 shadow-lg">
                     <div class="text-xs font-bold text-yellow-300">📌 Bazi Astrology Setup</div>
                     <div class="grid grid-cols-3 gap-2">
@@ -225,47 +261,23 @@
                         <input type="text" id="bDay" value="${state.baziInput.day}" placeholder="日" class="bg-purple-950/60 border border-purple-500/40 rounded-xl p-2 text-xs text-center text-white">
                     </div>
                     <div class="grid grid-cols-3 gap-2">
-                        <input type="text" id="bTime" value="${state.baziInput.time}" placeholder="时间 (17:45)" class="bg-purple-950/60 border border-purple-500/40 rounded-xl p-2 text-xs text-center text-white">
+                        <input type="text" id="bTime" value="${state.baziInput.time}" placeholder="时间" class="bg-purple-950/60 border border-purple-500/40 rounded-xl p-2 text-xs text-center text-white">
                         <input type="text" id="bCountry" value="${state.baziInput.country}" placeholder="国家" class="bg-purple-950/60 border border-purple-500/40 rounded-xl p-2 text-xs text-center text-white">
                         <input type="text" id="bCity" value="${state.baziInput.city}" placeholder="城市" class="bg-purple-950/60 border border-purple-500/40 rounded-xl p-2 text-xs text-center text-white">
                     </div>
                     <button onclick="saveBaziInput()" class="w-full bg-yellow-400 text-purple-950 font-bold py-2.5 rounded-xl text-xs shadow-md active:scale-95 transition">保存并生成命盘解析</button>
                 </div>
-
-                <!-- 1. Bazi Analysis -->
                 <div class="app-card p-4 rounded-2xl border border-purple-400/30 shadow-lg space-y-2">
-                    <div class="flex justify-between items-center">
-                        <span class="text-xs font-bold text-yellow-300">1. 八字命盘 (Bazi)</span>
-                        <span class="text-[10px] bg-green-500/20 text-green-300 px-2 py-0.5 rounded-full">已校准</span>
-                    </div>
-                    <p class="text-xs text-purple-100 leading-relaxed">
-                        四柱格局：<span class="font-bold text-white">丁丑、辛亥、庚辰、乙酉</span><br>
-                        五行强弱分析：金水旺相，木火为用。整体气场稳健，具备极佳的商业直觉与执行魄力。
-                    </p>
+                    <div class="flex justify-between items-center"><span class="text-xs font-bold text-yellow-300">1. 八字命盘 (Bazi)</span><span class="text-[10px] bg-green-500/20 text-green-300 px-2 py-0.5 rounded-full">已校准</span></div>
+                    <p class="text-xs text-purple-100 leading-relaxed">四柱格局：<span class="font-bold text-white">丁丑、辛亥、庚辰、乙酉</span><br>五行强弱分析：金水旺相，木火为用。</p>
                 </div>
-
-                <!-- 2. Zi Wei Dou Shu -->
                 <div class="app-card p-4 rounded-2xl border border-purple-400/30 shadow-lg space-y-2">
-                    <div class="flex justify-between items-center">
-                        <span class="text-xs font-bold text-yellow-300">2. 紫微斗数 (Zi Wei Dou Shu)</span>
-                        <span class="text-[10px] bg-purple-500/20 text-purple-300 px-2 py-0.5 rounded-full">主星联动</span>
-                    </div>
-                    <p class="text-xs text-purple-100 leading-relaxed">
-                        命宫主星：紫微、破军化禄。<br>
-                        运势节奏：近期在独立自主、开拓 F&B 业务与个人独立项目上星光熠熠，利于突破瓶颈。
-                    </p>
+                    <div class="flex justify-between items-center"><span class="text-xs font-bold text-yellow-300">2. 紫微斗数</span><span class="text-[10px] bg-purple-500/20 text-purple-300 px-2 py-0.5 rounded-full">主星联动</span></div>
+                    <p class="text-xs text-purple-100 leading-relaxed">命宫主星：紫微、破军化禄。运势节奏：开拓项目顺利。</p>
                 </div>
-
-                <!-- 3. Numberology -->
                 <div class="app-card p-4 rounded-2xl border border-purple-400/30 shadow-lg space-y-2 pb-6">
-                    <div class="flex justify-between items-center">
-                        <span class="text-xs font-bold text-yellow-300">3. 生命灵数 (Numerology)</span>
-                        <span class="text-[10px] bg-yellow-500/20 text-yellow-300 px-2 py-0.5 rounded-full">能量频段</span>
-                    </div>
-                    <p class="text-xs text-purple-100 leading-relaxed">
-                        核心数字：<span class="font-bold text-white">主命数 4</span>（严谨结构、实干筑基）<br>
-                        强弱势评估：执行力极强、对代码逻辑与财务管理极度敏感；需注意劳逸结合，避免过度追求完美。
-                    </p>
+                    <div class="flex justify-between items-center"><span class="text-xs font-bold text-yellow-300">3. 生命灵数</span><span class="text-[10px] bg-yellow-500/20 text-yellow-300 px-2 py-0.5 rounded-full">能量频段</span></div>
+                    <p class="text-xs text-purple-100 leading-relaxed">核心数字：<span class="font-bold text-white">主命数 4</span>（严谨结构、实干筑基）</p>
                 </div>
             `;
         }
@@ -280,48 +292,38 @@
                 city: document.getElementById('bCity').value
             };
             saveState();
-            alert("🔮 Bazi & Rhythm 设定已更新并重新演算！");
+            alert("🔮 Bazi & Rhythm 设定已更新！");
             render();
         }
-
 
         // ================= PAGE 3: USER PROFILE =================
         function renderProfile(container) {
             container.innerHTML = `
                 <div class="text-center space-y-4 pt-2">
                     <h2 class="text-lg font-black tracking-wide text-yellow-300">👤 User Profile</h2>
-                    
-                    <!-- Avatar Upload / Edit -->
                     <div class="relative w-24 h-24 mx-auto group cursor-pointer" onclick="changeAvatar()">
                         <img src="${state.userProfile.avatar}" class="w-full h-full rounded-full object-cover border-4 border-yellow-400 shadow-xl">
                         <div class="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition text-xs font-bold">更换头像</div>
                     </div>
-
-                    <!-- Name Setup -->
                     <div class="flex justify-center items-center space-x-2">
                         <input type="text" id="userNameInput" value="${state.userProfile.name}" onchange="updateUserName(this.value)" class="bg-purple-950/60 border border-purple-500/40 rounded-xl px-4 py-1.5 text-sm text-center font-bold text-white w-40">
                     </div>
-
-                    <!-- Slogan -->
                     <div class="app-card px-4 py-3 rounded-2xl border border-purple-400/30 text-xs text-purple-200 italic shadow-inner">
                         “ ${state.userProfile.slogan} ”
                     </div>
                 </div>
-
-                <!-- Big Goals / Target Section -->
                 <div class="space-y-3 pt-4 pb-12">
                     <div class="flex justify-between items-center px-1">
                         <h3 class="text-sm font-bold tracking-wide">🎯 ${state.userProfile.name}'s Big Goals / Target</h3>
                         <button onclick="addGoalItem()" class="w-7 h-7 bg-yellow-400 text-purple-950 font-black rounded-lg flex items-center justify-center shadow-md active:scale-95 transition text-base">+</button>
                     </div>
-
                     <div class="space-y-2">
                         ${state.bigGoals.map(goal => `
                             <div class="app-card p-3.5 rounded-xl border border-purple-500/30 flex items-center justify-between shadow-sm">
                                 <span class="text-xs text-white font-medium flex-1 mr-2">${goal.text}</span>
                                 <div class="flex items-center space-x-1">
-                                    <button onclick="editGoal(${goal.id})" class="text-purple-300 hover:text-white p-1 text-xs" title="Edit">✏️</button>
-                                    <button onclick="deleteGoal(${goal.id})" class="text-red-400 hover:text-red-300 p-1 text-xs" title="Delete">🗑️</button>
+                                    <button onclick="editGoal(${goal.id})" class="text-purple-300 hover:text-white p-1 text-xs">✏️</button>
+                                    <button onclick="deleteGoal(${goal.id})" class="text-red-400 hover:text-red-300 p-1 text-xs">🗑️</button>
                                 </div>
                             </div>
                         `).join('')}
@@ -330,56 +332,71 @@
             `;
         }
 
-        function updateUserName(newName) {
-            if (!newName) return;
-            state.userProfile.name = newName;
-            saveState();
-            render();
-        }
-
+        function updateUserName(newName) { if (!newName) return; state.userProfile.name = newName; saveState(); render(); }
         function changeAvatar() {
             const newUrl = prompt("请输入新的头像图片 URL:", state.userProfile.avatar);
-            if (newUrl) {
-                state.userProfile.avatar = newUrl;
-                saveState();
-                render();
-            }
+            if (newUrl) { state.userProfile.avatar = newUrl; saveState(); render(); }
         }
-
         function addGoalItem() {
             const text = prompt("请输入新的宏大目标 (Big Goal):");
             if (!text) return;
             state.bigGoals.push({ id: Date.now(), text });
-            saveState();
-            render();
+            saveState(); render();
         }
-
         function editGoal(id) {
             const goal = state.bigGoals.find(g => g.id === id);
             if (!goal) return;
             const newText = prompt("修改目标:", goal.text);
-            if (newText) {
-                goal.text = newText;
-                saveState();
-                render();
-            }
+            if (newText) { goal.text = newText; saveState(); render(); }
         }
+        function deleteGoal(id) { state.bigGoals = state.bigGoals.filter(g => g.id !== id); saveState(); render(); }
 
-        function deleteGoal(id) {
-            state.bigGoals = state.bigGoals.filter(g => g.id !== id);
-            saveState();
-            render();
-        }
-
-
-        // ================= AI SECRETARY MAX CHAT =================
+        // ================= AI SECRETARY MAX FULLSCREEN CHAT =================
         function openMaxChat() {
+            maxState.mode = null;
+            maxState.messages = [];
+            
+            document.getElementById('maxOptions').classList.remove('hidden');
+            document.getElementById('maxInputBox').classList.add('hidden');
+            
+            const chatBox = document.getElementById('maxChatBox');
+            chatBox.innerHTML = `
+                <div class="bg-purple-900/50 p-4 rounded-2xl border border-purple-400/30 space-y-2">
+                    <p class="font-bold text-yellow-300 text-sm">🤖 嗨老板！我是 Max，你的专属私家秘书。</p>
+                    <p class="text-purple-200">请选择您需要我协助的方向：</p>
+                </div>
+            `;
             document.getElementById('maxModal').classList.remove('hidden');
         }
 
         function closeMaxChat() {
             document.getElementById('maxModal').classList.add('hidden');
+            maxState.mode = null;
+            maxState.messages = [];
+            // 关闭时刷新一下气泡，换一句新问候
+            initRandomGreeting();
         }
+
+        function selectMaxMode(mode) {
+            maxState.mode = mode;
+            document.getElementById('maxOptions').classList.add('hidden');
+            document.getElementById('maxInputBox').classList.remove('hidden');
+
+            const chatBox = document.getElementById('maxChatBox');
+            const promptText = mode === 'todo' 
+                ? "📋 您选择了 **Help me To-Do**。请问今天有什么新任务要交给我？（输入后按 Enter，我将为您优化并直接加入待办列表）" 
+                : "📝 您选择了 **Quick memo**。请问有什么灵感或备忘需要记录？（输入后按 Enter，我将为您精简并存入速记备忘）";
+
+            chatBox.innerHTML += `
+                <div class="bg-purple-900/50 p-3 rounded-2xl border border-purple-400/30">
+                    <p class="text-purple-100">${promptText}</p>
+                </div>
+            `;
+            chatBox.scrollTop = chatBox.scrollHeight;
+            document.getElementById('maxInput').focus();
+        }
+
+        function handleMaxKeydown(event) { if (event.key === 'Enter') sendToMax(); }
 
         function sendToMax() {
             const input = document.getElementById('maxInput');
@@ -387,25 +404,42 @@
             if (!text) return;
 
             const chatBox = document.getElementById('maxChatBox');
-            chatBox.innerHTML += `<p class="text-right text-yellow-300"><b>你:</b> ${text}</p>`;
+            chatBox.innerHTML += `<div class="text-right"><span class="inline-block bg-yellow-400 text-purple-950 font-bold px-3 py-2 rounded-2xl max-w-[80%] text-left">${text}</span></div>`;
             input.value = "";
             chatBox.scrollTop = chatBox.scrollHeight;
 
             setTimeout(() => {
-                let reply = "收到老板！我已经把这条记录妥善处理进看板了。";
-                if (text.includes("股票") || text.includes("Moomoo")) {
-                    reply = "收到盯盘指令：Moomoo 资产雷达运转正常，随时为您关注价格波动！";
-                } else if (text.includes("游戏") || text.includes("方块")) {
-                    reply = "方块游戏手感已拉满，随时准备冲击排行榜！";
+                let aiReply = "";
+                if (maxState.mode === 'todo') {
+                    const optimizedText = `[AI优化] ${text}`;
+                    state.todos.push({ id: Date.now(), text: optimizedText, completed: false, date: new Date().toISOString().split('T')[0] });
+                    saveState();
+                    aiReply = `✅ 收到！我已为您优化并自动添加至 <b class="text-yellow-300">To-do-List</b>：<br>“${optimizedText}”`;
+                } else if (maxState.mode === 'memo') {
+                    const optimizedMemo = `[灵感] ${text}`;
+                    state.memoText = state.memoText ? state.memoText + "\n" + optimizedMemo : optimizedMemo;
+                    saveState();
+                    aiReply = `✨ 收到！我已为您提炼重点并自动追加至 <b class="text-yellow-300">Quick Memo</b> 备忘录中。`;
                 }
-                chatBox.innerHTML += `<p class="text-left text-purple-200"><b>Max:</b> ${reply}</p>`;
+
+                chatBox.innerHTML += `
+                    <div class="bg-purple-900/60 p-3.5 rounded-2xl border border-purple-400/30 space-y-1">
+                        <p class="font-bold text-yellow-300 text-[11px]">🤖 Max 秘书回复：</p>
+                        <p class="text-purple-100 leading-relaxed">${aiReply}</p>
+                    </div>
+                `;
                 chatBox.scrollTop = chatBox.scrollHeight;
-            }, 600);
+
+                setTimeout(() => {
+                    closeMaxChat();
+                    render();
+                }, 2200);
+
+            }, 800);
         }
 
-        // 初始化首次渲染
+        // 初始化首次渲染与气泡
         render();
     </script>
 </body>
 </html>
-
