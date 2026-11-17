@@ -32,6 +32,9 @@
         <!-- 动态渲染页面 -->
     </div>
 
+    <!-- 隐藏的手机相册文件上传选择器 -->
+    <input type="file" id="avatarFileInput" accept="image/*" class="hidden" onchange="handleImageUpload(event)">
+
     <!-- 底部悬浮 AI 秘书 (Max) 右下角 + 随机气泡 -->
     <div class="fixed right-6 bottom-20 flex items-center space-x-2 z-40">
         <div id="maxGreetingBubble" onclick="openMaxChat()" class="bubble-anim app-card px-3.5 py-2 rounded-2xl border border-yellow-400/50 shadow-xl cursor-pointer text-[11px] text-yellow-300 font-semibold tracking-wide whitespace-nowrap active:scale-95 transition">
@@ -96,12 +99,12 @@
     </div>
 
     <script>
-        // --- 核心全局状态数据 (已清空所有默认 example) ---
+        // --- 核心全局状态数据 ---
         let state = {
             currentPage: 1,
             userProfile: {
                 name: "Marcus",
-                avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
+                avatar: localStorage.getItem('omi_avatar') || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
                 slogan: "To do something U can do , To get What U can get"
             },
             memoText: localStorage.getItem('omi_memo') || "",
@@ -135,6 +138,7 @@
             localStorage.setItem('omi_todos', JSON.stringify(state.todos));
             localStorage.setItem('omi_goals', JSON.stringify(state.bigGoals));
             localStorage.setItem('omi_bazi', JSON.stringify(state.baziInput));
+            localStorage.setItem('omi_avatar', state.userProfile.avatar);
         }
 
         function switchPage(page) {
@@ -274,15 +278,18 @@
             render();
         }
 
-        // ================= PAGE 3: USER PROFILE =================
+        // ================= PAGE 3: USER PROFILE (手机相册直选) =================
         function renderProfile(container) {
             container.innerHTML = `
                 <div class="text-center space-y-4 pt-2">
                     <h2 class="text-lg font-black tracking-wide text-yellow-300">👤 User Profile</h2>
-                    <div class="relative w-24 h-24 mx-auto group cursor-pointer" onclick="changeAvatar()">
+                    
+                    <!-- 点击直接触发手机相册选择器 -->
+                    <div class="relative w-24 h-24 mx-auto group cursor-pointer" onclick="triggerPhotoSelect()">
                         <img src="${state.userProfile.avatar}" class="w-full h-full rounded-full object-cover border-4 border-yellow-400 shadow-xl">
                         <div class="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition text-xs font-bold">更换头像</div>
                     </div>
+                    
                     <div class="flex justify-center items-center space-x-2">
                         <input type="text" id="userNameInput" value="${state.userProfile.name}" onchange="updateUserName(this.value)" class="bg-purple-950/60 border border-purple-500/40 rounded-xl px-4 py-1.5 text-sm text-center font-bold text-white w-40">
                     </div>
@@ -311,11 +318,26 @@
             `;
         }
 
-        function updateUserName(newName) { if (!newName) return; state.userProfile.name = newName; saveState(); render(); }
-        function changeAvatar() {
-            const newUrl = prompt("请输入新的头像图片 URL:", state.userProfile.avatar);
-            if (newUrl) { state.userProfile.avatar = newUrl; saveState(); render(); }
+        // 唤起手机相册
+        function triggerPhotoSelect() {
+            document.getElementById('avatarFileInput').click();
         }
+
+        // 处理相册选中的图片，转为本地 Base64 存储
+        function handleImageUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                state.userProfile.avatar = e.target.result;
+                saveState();
+                render();
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function updateUserName(newName) { if (!newName) return; state.userProfile.name = newName; saveState(); render(); }
         function addGoalItem() {
             const text = prompt("请输入新的宏大目标 (Big Goal):");
             if (!text) return;
