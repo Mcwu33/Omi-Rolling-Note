@@ -1,1 +1,411 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Omi-Rolling-Note</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background-color: #7b5ea7;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        .app-card {
+            background: rgba(60, 42, 90, 0.7);
+            backdrop-filter: blur(10px);
+        }
+    </style>
+</head>
+<body class="flex flex-col h-screen justify-between max-w-md mx-auto text-white overflow-hidden">
+
+    <!-- 主内容区域 (根据 Page 切换) -->
+    <div id="mainContent" class="flex-1 overflow-y-auto p-4 space-y-4 pb-20">
+        <!-- 动态渲染页面 -->
+    </div>
+
+    <!-- 底部悬浮 AI 秘书 (Max) 右下角 -->
+    <div onclick="openMaxChat()" class="fixed right-6 bottom-20 w-12 h-12 bg-yellow-400 rounded-full shadow-2xl flex items-center justify-center cursor-pointer border-2 border-purple-950 active:scale-95 transition z-40 group" title="Secretary AI: Max">
+        <span class="text-xl">🤖</span>
+        <span class="absolute -top-1 -right-1 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-purple-950"></span>
+    </div>
+
+    <!-- 底部导航栏 (切换 3 个 Screen) -->
+    <div class="fixed bottom-0 left-0 right-0 max-w-md mx-auto app-card border-t border-purple-500/30 px-6 py-3 flex justify-around items-center z-30">
+        <button onclick="switchPage(1)" id="navBtn1" class="flex flex-col items-center text-yellow-300 transition">
+            <span class="text-xl">📊</span>
+            <span class="text-[10px] mt-1 font-semibold">Dashboard</span>
+        </button>
+        <button onclick="switchPage(2)" id="navBtn2" class="flex flex-col items-center text-purple-300 hover:text-white transition">
+            <span class="text-xl">🔮</span>
+            <span class="text-[10px] mt-1 font-semibold">Bazi & Rhythm</span>
+        </button>
+        <button onclick="switchPage(3)" id="navBtn3" class="flex flex-col items-center text-purple-300 hover:text-white transition">
+            <span class="text-xl">👤</span>
+            <span class="text-[10px] mt-1 font-semibold">Profile</span>
+        </button>
+    </div>
+
+    <!-- AI Max 弹窗交互层 -->
+    <div id="maxModal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex flex-col justify-end">
+        <div class="app-card rounded-t-3xl p-6 border-t border-purple-400/30 max-h-[70vh] flex flex-col">
+            <div class="flex justify-between items-center mb-4">
+                <div class="flex items-center space-x-2">
+                    <span class="text-2xl">🤖</span>
+                    <div>
+                        <h3 class="font-bold text-sm">Secretary Max</h3>
+                        <p class="text-[10px] text-purple-300">Your AI Personal Assistant</p>
+                    </div>
+                </div>
+                <button onclick="closeMaxChat()" class="text-purple-300 hover:text-white text-lg font-bold px-2">✕</button>
+            </div>
+            <div id="maxChatBox" class="flex-1 overflow-y-auto space-y-2 text-xs text-purple-100 bg-purple-950/40 p-3 rounded-2xl mb-4 h-40">
+                <p>💡 嗨老板！我是 Max，你的专属私家秘书。今天有什么灵感、待办或者需要我协助整理的吗？</p>
+            </div>
+            <div class="flex space-x-2">
+                <input type="text" id="maxInput" placeholder="输入你想吩咐 Max 的事..." class="flex-1 bg-purple-900/60 border border-purple-500/40 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-yellow-400">
+                <button onclick="sendToMax()" class="bg-yellow-400 text-purple-950 font-bold px-4 py-2.5 rounded-xl text-xs active:scale-95 transition">发送</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- 核心全局状态数据 ---
+        let state = {
+            currentPage: 1,
+            userProfile: {
+                name: "Marcus",
+                avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
+                slogan: "To do something U can do , To get What U can get"
+            },
+            memoText: localStorage.getItem('omi_memo') || "",
+            todos: JSON.parse(localStorage.getItem('omi_todos')) || [
+                { id: 1, text: "F&B 店铺日常运营与库存盘点", completed: false, date: "2026-11-18" },
+                { id: 2, text: "B-Rolling-Block 拖拽回弹优化", completed: false, date: "2026-11-18" }
+            ],
+            bigGoals: JSON.parse(localStorage.getItem('omi_goals')) || [
+                { id: 1, text: "长期月收入突破 10,000 MYR" },
+                { id: 2, text: "完成赛博私家秘书 Web 初代闭环" }
+            ],
+            baziInput: JSON.parse(localStorage.getItem('omi_bazi')) || {
+                year: "1997", month: "12", day: "04", time: "17:45", country: "Malaysia", city: "Kuching"
+            }
+        };
+
+        function saveState() {
+            localStorage.setItem('omi_memo', state.memoText);
+            localStorage.setItem('omi_todos', JSON.stringify(state.todos));
+            localStorage.setItem('omi_goals', JSON.stringify(state.bigGoals));
+            localStorage.setItem('omi_bazi', JSON.stringify(state.baziInput));
+        }
+
+        // --- 页面切换逻辑 ---
+        function switchPage(page) {
+            state.currentPage = page;
+            for (let i = 1; i <= 3; i++) {
+                const btn = document.getElementById(`navBtn${i}`);
+                btn.className = i === page 
+                    ? "flex flex-col items-center text-yellow-300 transition" 
+                    : "flex flex-col items-center text-purple-300 hover:text-white transition";
+            }
+            render();
+        }
+
+        function render() {
+            const container = document.getElementById('mainContent');
+            if (state.currentPage === 1) renderDashboard(container);
+            else if (state.currentPage === 2) renderBaziWidget(container);
+            else if (state.currentPage === 3) renderProfile(container);
+        }
+
+        // ================= PAGE 1: DASHBOARD =================
+        function renderDashboard(container) {
+            const todayStr = new Date().toLocaleDateString('zh-CN', { month: 'short', day: 'numeric', weekday: 'short' });
+            
+            container.innerHTML = `
+                <!-- Top Bar -->
+                <div class="flex justify-between items-center">
+                    <div class="flex items-center space-x-3">
+                        <img src="${state.userProfile.avatar}" class="w-10 h-10 rounded-full object-cover border-2 border-yellow-400 shadow-md">
+                        <span class="font-bold text-sm tracking-wide">${state.userProfile.name}</span>
+                    </div>
+                    <div class="app-card px-3 py-1.5 rounded-xl border border-purple-500/30 text-xs text-purple-200 flex items-center space-x-1 shadow-inner">
+                        <span>📅</span>
+                        <span class="font-medium">${todayStr}</span>
+                    </div>
+                </div>
+
+                <!-- Top Middle: Time & Energy Flow -->
+                <div class="app-card p-3 rounded-2xl border border-purple-400/30 text-center shadow-lg">
+                    <div class="text-[10px] text-purple-300 uppercase tracking-widest font-bold">⚡ Time & Energy Flow</div>
+                    <div class="text-xs font-bold text-yellow-300 mt-1">午后高效区 ➔ F&B 门店运营与代码冲刺中</div>
+                </div>
+
+                <!-- 1/3 Screen Empty Note -->
+                <div class="app-card p-3 rounded-2xl border border-purple-400/30 flex flex-col h-36 shadow-lg">
+                    <div class="text-[10px] text-purple-300 font-semibold mb-1">📝 Quick Memo (速记备忘)</div>
+                    <textarea id="memoInput" oninput="updateMemo(this.value)" placeholder="随时记录闪现灵感、临时想法..." class="flex-1 bg-transparent text-xs text-white placeholder-purple-400/65 resize-none focus:outline-none">${state.memoText}</textarea>
+                </div>
+
+                <!-- To-Do-List Section -->
+                <div class="space-y-2 pb-6">
+                    <div class="flex justify-between items-center">
+                        <h3 class="text-sm font-bold tracking-wide">To-do-List</h3>
+                        <button onclick="addTodoItem()" class="w-7 h-7 bg-yellow-400 text-purple-950 font-black rounded-lg flex items-center justify-center shadow-md active:scale-95 transition text-base">+</button>
+                    </div>
+
+                    <div id="todoListContainer" class="space-y-2">
+                        ${state.todos.map((todo, idx) => `
+                            <div class="app-card p-3 rounded-xl border border-purple-500/30 flex items-center justify-between shadow-sm">
+                                <div class="flex items-center space-x-3 flex-1 mr-2">
+                                    <input type="checkbox" onclick="completeTodo(${todo.id})" ${todo.completed ? 'checked' : ''} class="w-4 h-4 accent-yellow-400 cursor-pointer">
+                                    <div class="flex flex-col">
+                                        <span class="text-xs text-white ${todo.completed ? 'line-through opacity-50' : ''}">${todo.text}</span>
+                                        <span class="text-[9px] text-purple-300">📅 ${todo.date}</span>
+                                    </div>
+                                </div>
+                                <button onclick="deleteTodo(${todo.id})" class="text-red-400 hover:text-red-300 text-sm px-2" title="Delete">🗑️</button>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        function updateMemo(val) {
+            state.memoText = val;
+            saveState();
+        }
+
+        function addTodoItem() {
+            const text = prompt("请输入新的待办事项:");
+            if (!text) return;
+            const date = prompt("请输入日期 (格式 YYYY-MM-DD):", new Date().toISOString().split('T')[0]);
+            state.todos.push({ id: Date.now(), text, completed: false, date: date || "今日" });
+            saveState();
+            render();
+        }
+
+        function completeTodo(id) {
+            const item = state.todos.find(t => t.id === id);
+            if (item) {
+                item.completed = true;
+                saveState();
+                setTimeout(() => {
+                    // 勾选后移出看板，模拟存入日历
+                    state.todos = state.todos.filter(t => t.id !== id);
+                    saveState();
+                    render();
+                }, 300);
+            }
+        }
+
+        function deleteTodo(id) {
+            state.todos = state.todos.filter(t => t.id !== id);
+            saveState();
+            render();
+        }
+
+
+        // ================= PAGE 2: BAZI & RHYTHM WIDGET =================
+        function renderBaziWidget(container) {
+            container.innerHTML = `
+                <div class="text-center mb-2">
+                    <h2 class="text-lg font-black tracking-wide text-yellow-300">🔮 Bazi & Rhythm Widget</h2>
+                    <p class="text-[10px] text-purple-200">传统命理与现代节奏智能生成看板</p>
+                </div>
+
+                <!-- Input Form -->
+                <div class="app-card p-4 rounded-2xl border border-purple-400/30 space-y-3 shadow-lg">
+                    <div class="text-xs font-bold text-yellow-300">📌 Bazi Astrology Setup</div>
+                    <div class="grid grid-cols-3 gap-2">
+                        <input type="text" id="bYear" value="${state.baziInput.year}" placeholder="出生年" class="bg-purple-950/60 border border-purple-500/40 rounded-xl p-2 text-xs text-center text-white">
+                        <input type="text" id="bMonth" value="${state.baziInput.month}" placeholder="月" class="bg-purple-950/60 border border-purple-500/40 rounded-xl p-2 text-xs text-center text-white">
+                        <input type="text" id="bDay" value="${state.baziInput.day}" placeholder="日" class="bg-purple-950/60 border border-purple-500/40 rounded-xl p-2 text-xs text-center text-white">
+                    </div>
+                    <div class="grid grid-cols-3 gap-2">
+                        <input type="text" id="bTime" value="${state.baziInput.time}" placeholder="时间 (17:45)" class="bg-purple-950/60 border border-purple-500/40 rounded-xl p-2 text-xs text-center text-white">
+                        <input type="text" id="bCountry" value="${state.baziInput.country}" placeholder="国家" class="bg-purple-950/60 border border-purple-500/40 rounded-xl p-2 text-xs text-center text-white">
+                        <input type="text" id="bCity" value="${state.baziInput.city}" placeholder="城市" class="bg-purple-950/60 border border-purple-500/40 rounded-xl p-2 text-xs text-center text-white">
+                    </div>
+                    <button onclick="saveBaziInput()" class="w-full bg-yellow-400 text-purple-950 font-bold py-2.5 rounded-xl text-xs shadow-md active:scale-95 transition">保存并生成命盘解析</button>
+                </div>
+
+                <!-- 1. Bazi Analysis -->
+                <div class="app-card p-4 rounded-2xl border border-purple-400/30 shadow-lg space-y-2">
+                    <div class="flex justify-between items-center">
+                        <span class="text-xs font-bold text-yellow-300">1. 八字命盘 (Bazi)</span>
+                        <span class="text-[10px] bg-green-500/20 text-green-300 px-2 py-0.5 rounded-full">已校准</span>
+                    </div>
+                    <p class="text-xs text-purple-100 leading-relaxed">
+                        四柱格局：<span class="font-bold text-white">丁丑、辛亥、庚辰、乙酉</span><br>
+                        五行强弱分析：金水旺相，木火为用。整体气场稳健，具备极佳的商业直觉与执行魄力。
+                    </p>
+                </div>
+
+                <!-- 2. Zi Wei Dou Shu -->
+                <div class="app-card p-4 rounded-2xl border border-purple-400/30 shadow-lg space-y-2">
+                    <div class="flex justify-between items-center">
+                        <span class="text-xs font-bold text-yellow-300">2. 紫微斗数 (Zi Wei Dou Shu)</span>
+                        <span class="text-[10px] bg-purple-500/20 text-purple-300 px-2 py-0.5 rounded-full">主星联动</span>
+                    </div>
+                    <p class="text-xs text-purple-100 leading-relaxed">
+                        命宫主星：紫微、破军化禄。<br>
+                        运势节奏：近期在独立自主、开拓 F&B 业务与个人独立项目上星光熠熠，利于突破瓶颈。
+                    </p>
+                </div>
+
+                <!-- 3. Numberology -->
+                <div class="app-card p-4 rounded-2xl border border-purple-400/30 shadow-lg space-y-2 pb-6">
+                    <div class="flex justify-between items-center">
+                        <span class="text-xs font-bold text-yellow-300">3. 生命灵数 (Numerology)</span>
+                        <span class="text-[10px] bg-yellow-500/20 text-yellow-300 px-2 py-0.5 rounded-full">能量频段</span>
+                    </div>
+                    <p class="text-xs text-purple-100 leading-relaxed">
+                        核心数字：<span class="font-bold text-white">主命数 4</span>（严谨结构、实干筑基）<br>
+                        强弱势评估：执行力极强、对代码逻辑与财务管理极度敏感；需注意劳逸结合，避免过度追求完美。
+                    </p>
+                </div>
+            `;
+        }
+
+        function saveBaziInput() {
+            state.baziInput = {
+                year: document.getElementById('bYear').value,
+                month: document.getElementById('bMonth').value,
+                day: document.getElementById('bDay').value,
+                time: document.getElementById('bTime').value,
+                country: document.getElementById('bCountry').value,
+                city: document.getElementById('bCity').value
+            };
+            saveState();
+            alert("🔮 Bazi & Rhythm 设定已更新并重新演算！");
+            render();
+        }
+
+
+        // ================= PAGE 3: USER PROFILE =================
+        function renderProfile(container) {
+            container.innerHTML = `
+                <div class="text-center space-y-4 pt-2">
+                    <h2 class="text-lg font-black tracking-wide text-yellow-300">👤 User Profile</h2>
+                    
+                    <!-- Avatar Upload / Edit -->
+                    <div class="relative w-24 h-24 mx-auto group cursor-pointer" onclick="changeAvatar()">
+                        <img src="${state.userProfile.avatar}" class="w-full h-full rounded-full object-cover border-4 border-yellow-400 shadow-xl">
+                        <div class="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition text-xs font-bold">更换头像</div>
+                    </div>
+
+                    <!-- Name Setup -->
+                    <div class="flex justify-center items-center space-x-2">
+                        <input type="text" id="userNameInput" value="${state.userProfile.name}" onchange="updateUserName(this.value)" class="bg-purple-950/60 border border-purple-500/40 rounded-xl px-4 py-1.5 text-sm text-center font-bold text-white w-40">
+                    </div>
+
+                    <!-- Slogan -->
+                    <div class="app-card px-4 py-3 rounded-2xl border border-purple-400/30 text-xs text-purple-200 italic shadow-inner">
+                        “ ${state.userProfile.slogan} ”
+                    </div>
+                </div>
+
+                <!-- Big Goals / Target Section -->
+                <div class="space-y-3 pt-4 pb-12">
+                    <div class="flex justify-between items-center px-1">
+                        <h3 class="text-sm font-bold tracking-wide">🎯 ${state.userProfile.name}'s Big Goals / Target</h3>
+                        <button onclick="addGoalItem()" class="w-7 h-7 bg-yellow-400 text-purple-950 font-black rounded-lg flex items-center justify-center shadow-md active:scale-95 transition text-base">+</button>
+                    </div>
+
+                    <div class="space-y-2">
+                        ${state.bigGoals.map(goal => `
+                            <div class="app-card p-3.5 rounded-xl border border-purple-500/30 flex items-center justify-between shadow-sm">
+                                <span class="text-xs text-white font-medium flex-1 mr-2">${goal.text}</span>
+                                <div class="flex items-center space-x-1">
+                                    <button onclick="editGoal(${goal.id})" class="text-purple-300 hover:text-white p-1 text-xs" title="Edit">✏️</button>
+                                    <button onclick="deleteGoal(${goal.id})" class="text-red-400 hover:text-red-300 p-1 text-xs" title="Delete">🗑️</button>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        function updateUserName(newName) {
+            if (!newName) return;
+            state.userProfile.name = newName;
+            saveState();
+            render();
+        }
+
+        function changeAvatar() {
+            const newUrl = prompt("请输入新的头像图片 URL:", state.userProfile.avatar);
+            if (newUrl) {
+                state.userProfile.avatar = newUrl;
+                saveState();
+                render();
+            }
+        }
+
+        function addGoalItem() {
+            const text = prompt("请输入新的宏大目标 (Big Goal):");
+            if (!text) return;
+            state.bigGoals.push({ id: Date.now(), text });
+            saveState();
+            render();
+        }
+
+        function editGoal(id) {
+            const goal = state.bigGoals.find(g => g.id === id);
+            if (!goal) return;
+            const newText = prompt("修改目标:", goal.text);
+            if (newText) {
+                goal.text = newText;
+                saveState();
+                render();
+            }
+        }
+
+        function deleteGoal(id) {
+            state.bigGoals = state.bigGoals.filter(g => g.id !== id);
+            saveState();
+            render();
+        }
+
+
+        // ================= AI SECRETARY MAX CHAT =================
+        function openMaxChat() {
+            document.getElementById('maxModal').classList.remove('hidden');
+        }
+
+        function closeMaxChat() {
+            document.getElementById('maxModal').classList.add('hidden');
+        }
+
+        function sendToMax() {
+            const input = document.getElementById('maxInput');
+            const text = input.value.trim();
+            if (!text) return;
+
+            const chatBox = document.getElementById('maxChatBox');
+            chatBox.innerHTML += `<p class="text-right text-yellow-300"><b>你:</b> ${text}</p>`;
+            input.value = "";
+            chatBox.scrollTop = chatBox.scrollHeight;
+
+            setTimeout(() => {
+                let reply = "收到老板！我已经把这条记录妥善处理进看板了。";
+                if (text.includes("股票") || text.includes("Moomoo")) {
+                    reply = "收到盯盘指令：Moomoo 资产雷达运转正常，随时为您关注价格波动！";
+                } else if (text.includes("游戏") || text.includes("方块")) {
+                    reply = "方块游戏手感已拉满，随时准备冲击排行榜！";
+                }
+                chatBox.innerHTML += `<p class="text-left text-purple-200"><b>Max:</b> ${reply}</p>`;
+                chatBox.scrollTop = chatBox.scrollHeight;
+            }, 600);
+        }
+
+        // 初始化首次渲染
+        render();
+    </script>
+</body>
+</html>
 
