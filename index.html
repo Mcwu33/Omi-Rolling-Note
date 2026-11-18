@@ -11,6 +11,7 @@
             font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             user-select: none;
             -webkit-user-select: none;
+            overflow: hidden; /* 防止全局滚动，由内部容器接管 */
         }
         .app-card {
             background: rgba(60, 42, 90, 0.75);
@@ -32,12 +33,20 @@
             animation: fireBorder 3s ease-in-out infinite;
             border-width: 2px;
         }
+        /* 页面切换淡入淡出动画 */
+        .page-transition {
+            animation: fadeIn 0.25s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.99); }
+            to { opacity: 1; transform: scale(1); }
+        }
     </style>
 </head>
 <body class="flex flex-col h-screen justify-between max-w-md mx-auto text-white overflow-hidden">
 
-    <!-- 主内容区域 -->
-    <div id="mainContent" class="flex-1 overflow-y-auto p-4 space-y-4 pb-20"></div>
+    <!-- 主内容区域 (绑定 Swipe 手势监听) -->
+    <div id="mainContent" class="flex-1 overflow-y-auto p-4 space-y-4 pb-20 page-transition"></div>
 
     <!-- 隐藏的手机相册文件上传选择器 -->
     <input type="file" id="avatarFileInput" accept="image/*" class="hidden" onchange="handleImageUpload(event)">
@@ -56,7 +65,7 @@
                 <button onclick="closeProgressModal()" class="text-purple-300 hover:text-white text-lg font-bold px-2">✕</button>
             </div>
 
-            <!-- AI Max 优化高能提示语 -->
+            <!-- AI Max 提示语 -->
             <div class="bg-purple-900/50 p-3.5 rounded-2xl border border-purple-400/30 text-xs text-purple-100 leading-relaxed">
                 <b class="text-yellow-300">🤖 Secretary Max 提示：</b><br>
                 老板！目前的突防进展如何？一切顺利吗？别忘了在此记录下最新节点，保持高能输出！🚀
@@ -172,25 +181,22 @@
         let maxState = { mode: null, messages: [] };
         let activeProgressTarget = { type: null, id: null };
 
-        // 智能高能催促引擎（结合 3 小时任务轰炸与每月 1 号目标审视）
+        // 智能高能催促引擎
         function checkSmartTriggers() {
             const now = new Date();
-            const todayDateNum = now.getDate(); // 几号
+            const todayDateNum = now.getDate();
             const lastGoalCheckMonth = localStorage.getItem('omi_last_goal_check_month');
             const currentMonthStr = `${now.getFullYear()}-${now.getMonth()}`;
 
-            // 1. 每月 1 号宏大目标审视检查
             if (todayDateNum === 1 && lastGoalCheckMonth !== currentMonthStr) {
                 localStorage.setItem('omi_last_goal_check_month', currentMonthStr);
                 return "🎯 帆海月度复盘！老板，新的一个月已开启，目前的宏大目标正稳健前行吗？";
             }
 
-            // 2. 活跃任务每 3 小时高能连环 Call
             const lastTaskNotifyTime = parseInt(localStorage.getItem('omi_last_task_notify_time') || '0');
             const threeHoursMs = 3 * 60 * 60 * 1000;
             
             if (now.getTime() - lastTaskNotifyTime > threeHoursMs && state.todos.length > 0) {
-                // 随机挑一个未完成的任务进行点名轰炸
                 const randomTodo = state.todos[Math.floor(Math.random() * state.todos.length)];
                 localStorage.setItem('omi_last_task_notify_time', now.getTime().toString());
                 return `🔥 报告老板！【${randomTodo.text}】进展如何？别忘记录进度或勾选完成！`;
@@ -202,8 +208,6 @@
         function initRandomGreeting() {
             const bubble = document.getElementById('maxGreetingBubble');
             if (!bubble) return;
-
-            // 优先展示高能定时轰炸提示
             const smartNotice = checkSmartTriggers();
             if (smartNotice) {
                 bubble.innerText = smartNotice;
@@ -248,6 +252,46 @@
             else if (state.currentPage === 3) renderProfile(container);
             initRandomGreeting();
         }
+
+        // ================= 左右 SWIPE 手势监听逻辑 =================
+        let touchStartX = 0;
+        let touchEndX = 0;
+
+        document.addEventListener('touchstart', e => {
+            touchStartX = e.changedTouches[0].screenX;
+        }, false);
+
+        document.addEventListener('touchend', e => {
+            touchEndX = e.changedTouches[0].screenX;
+            handleSwipeGesture();
+        }, false);
+
+        function handleSwipeGesture() {
+            const threshold = 50; // 最小滑动触发距离
+            const diff = touchEndX - touchStartX;
+
+            if (Math.abs(diff) < threshold) return; // 过滤轻微滑动
+
+            if (diff < 0) {
+                // 向左滑动 ➔ 切换下一页
+                if (state.currentPage < 3) {
+                    switchPage(state.currentPage + 1);
+                }
+            } else {
+                // 向右滑动 ➔ 切换上一页
+                if (state.currentPage > 1) {
+                    switchPage(state.currentPage - 1);
+                }
+            }
+        }
+
+        // ================= 自动归位 Dashboard 监听 =================
+        document.addEventListener("visibilitychange", function() {
+            if (!document.hidden) {
+                switchPage(1); // 切回网页瞬间闪回 Dashboard
+                initRandomGreeting();
+            }
+        });
 
         function renderEnergyFlowCard() {
             const hour = new Date().getHours();
@@ -408,7 +452,7 @@
             container.innerHTML = `
                 <div class="text-center space-y-1 pt-1">
                     <h2 class="text-lg font-black tracking-wide text-yellow-300">⚡ Progress & Execution</h2>
-                    <p class="text-[10px] text-purple-200">核心任务与宏大目标执行进度控制台</p>
+                    <p class="text-[10px] text-purple-200">核心任务与宏大目标执行进度控制台 (可左右滑动切换页面)</p>
                 </div>
 
                 <div class="space-y-4 pt-2 pb-16">
