@@ -40,7 +40,6 @@
             from { opacity: 0; transform: scale(0.99); }
             to { opacity: 1; transform: scale(1); }
         }
-        /* 下拉刷新提示条动画 */
         #pullRefreshIndicator {
             transition: transform 0.2s ease, opacity 0.2s ease;
         }
@@ -55,7 +54,7 @@
         </span>
     </div>
 
-    <!-- 主内容区域 (绑定 Swipe 手势与下拉刷新) -->
+    <!-- 主内容区域 -->
     <div id="mainContent" class="flex-1 overflow-y-auto p-4 space-y-4 pb-20 page-transition relative"></div>
 
     <!-- 隐藏的手机相册文件上传选择器 -->
@@ -166,6 +165,7 @@
             </div>
 
             <div id="maxInputBox" class="hidden flex space-x-2">
+                <!-- 修复：每次打开输入框时确保为空，且绑定回车监听 -->
                 <input type="text" id="maxInput" onkeydown="handleMaxKeydown(event)" placeholder="输入内容，按 Enter 发送..." class="flex-1 bg-purple-950/80 border border-purple-400/50 rounded-2xl px-4 py-3 text-xs text-white focus:outline-none focus:border-yellow-400 shadow-inner">
                 <button onclick="sendToMax()" class="bg-yellow-400 text-purple-950 font-bold px-5 py-3 rounded-2xl text-xs active:scale-95 transition shadow-lg">发送</button>
             </div>
@@ -263,7 +263,7 @@
             initRandomGreeting();
         }
 
-        // ================= 左右 SWIPE 手势 + 下拉刷新 (Pull-to-Refresh) =================
+        // ================= 左右 SWIPE 手势 + 下拉刷新 =================
         let touchStartX = 0;
         let touchStartY = 0;
         let touchEndX = 0;
@@ -285,13 +285,11 @@
             const diffX = touchEndX - touchStartX;
             const diffY = touchEndY - touchStartY;
 
-            // 如果主要是纵向滑动且在顶部下拉
             if (Math.abs(diffY) > Math.abs(diffX) && diffY > 100 && window.scrollY === 0) {
                 triggerRefreshAnimation();
                 return;
             }
 
-            // 横向 Swipe 切换页面
             if (Math.abs(diffX) < threshold) return;
             if (diffX < 0) {
                 if (state.currentPage < 3) switchPage(state.currentPage + 1);
@@ -300,20 +298,7 @@
             }
         }
 
-        // 下拉刷新视觉动效与逻辑
         const mainContainer = document.getElementById('mainContent');
-        mainContainer.addEventListener('scroll', function() {
-            const indicator = document.getElementById('pullRefreshIndicator');
-            if (mainContainer.scrollTop <= -40) {
-                indicator.style.transform = "translateY(0)";
-                indicator.style.opacity = "1";
-            } else {
-                indicator.style.transform = "translateY(-100%)";
-                indicator.style.opacity = "0";
-            }
-        });
-
-        // 触控下拉触发刷新
         let startY = 0;
         mainContainer.addEventListener('touchstart', e => {
             startY = e.touches[0].pageY;
@@ -353,7 +338,6 @@
             }, 600);
         }
 
-        // ================= 自动归位 Dashboard 监听 =================
         document.addEventListener("visibilitychange", function() {
             if (!document.hidden) {
                 switchPage(1);
@@ -690,11 +674,15 @@
         }
         function deleteGoal(id) { state.bigGoals = state.bigGoals.filter(g => g.id !== id); saveState(); render(); }
 
-        // ================= AI SECRETARY MAX FULLSCREEN CHAT (极速响应版) =================
+        // ================= AI SECRETARY MAX FULLSCREEN CHAT (输入框自动清空版) =================
         function openMaxChat() {
             maxState.mode = null;
             maxState.messages = [];
             
+            // 每次打开时，强制清空输入框内容，防止残留上次的文字
+            const inputField = document.getElementById('maxInput');
+            if (inputField) inputField.value = "";
+
             document.getElementById('maxOptions').classList.remove('hidden');
             document.getElementById('maxInputBox').classList.add('hidden');
             
@@ -712,6 +700,9 @@
             document.getElementById('maxModal').classList.add('hidden');
             maxState.mode = null;
             maxState.messages = [];
+            // 关闭时也清空输入框
+            const inputField = document.getElementById('maxInput');
+            if (inputField) inputField.value = "";
             initRandomGreeting();
         }
 
@@ -731,7 +722,13 @@
                 </div>
             `;
             chatBox.scrollTop = chatBox.scrollHeight;
-            document.getElementById('maxInput').focus();
+            
+            // 确保切换模式时输入框清空并聚焦
+            const inputField = document.getElementById('maxInput');
+            if (inputField) {
+                inputField.value = "";
+                inputField.focus();
+            }
         }
 
         function handleMaxKeydown(event) { if (event.key === 'Enter') sendToMax(); }
@@ -743,7 +740,6 @@
 
             const createdAtStr = new Date().toLocaleString('zh-CN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 
-            // 极速处理：瞬间存入状态并保存
             if (maxState.mode === 'todo') {
                 state.todos.push({ 
                     id: Date.now(), 
@@ -757,8 +753,12 @@
             }
 
             saveState();
-            closeMaxChat(); // 瞬间关闭弹窗
-            switchPage(1);  // 瞬间强制回 Dashboard 并重新渲染
+            
+            // 发送后立即清空输入框
+            input.value = "";
+
+            closeMaxChat(); 
+            switchPage(1);  
         }
 
         render();
