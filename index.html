@@ -165,7 +165,6 @@
             </div>
 
             <div id="maxInputBox" class="hidden flex space-x-2">
-                <!-- 修复：每次打开输入框时确保为空，且绑定回车监听 -->
                 <input type="text" id="maxInput" onkeydown="handleMaxKeydown(event)" placeholder="输入内容，按 Enter 发送..." class="flex-1 bg-purple-950/80 border border-purple-400/50 rounded-2xl px-4 py-3 text-xs text-white focus:outline-none focus:border-yellow-400 shadow-inner">
                 <button onclick="sendToMax()" class="bg-yellow-400 text-purple-950 font-bold px-5 py-3 rounded-2xl text-xs active:scale-95 transition shadow-lg">发送</button>
             </div>
@@ -674,14 +673,16 @@
         }
         function deleteGoal(id) { state.bigGoals = state.bigGoals.filter(g => g.id !== id); saveState(); render(); }
 
-        // ================= AI SECRETARY MAX FULLSCREEN CHAT (输入框自动清空版) =================
+        // ================= AI SECRETARY MAX FULLSCREEN CHAT (绝对彻底清空版) =================
         function openMaxChat() {
             maxState.mode = null;
             maxState.messages = [];
             
-            // 每次打开时，强制清空输入框内容，防止残留上次的文字
+            // 每次打开时，彻底抹掉输入框的值并聚焦
             const inputField = document.getElementById('maxInput');
-            if (inputField) inputField.value = "";
+            if (inputField) {
+                inputField.value = "";
+            }
 
             document.getElementById('maxOptions').classList.remove('hidden');
             document.getElementById('maxInputBox').classList.add('hidden');
@@ -700,9 +701,11 @@
             document.getElementById('maxModal').classList.add('hidden');
             maxState.mode = null;
             maxState.messages = [];
-            // 关闭时也清空输入框
+            
             const inputField = document.getElementById('maxInput');
-            if (inputField) inputField.value = "";
+            if (inputField) {
+                inputField.value = "";
+            }
             initRandomGreeting();
         }
 
@@ -723,7 +726,7 @@
             `;
             chatBox.scrollTop = chatBox.scrollHeight;
             
-            // 确保切换模式时输入框清空并聚焦
+            // 模式切换时双重保障清空并聚焦
             const inputField = document.getElementById('maxInput');
             if (inputField) {
                 inputField.value = "";
@@ -731,10 +734,16 @@
             }
         }
 
-        function handleMaxKeydown(event) { if (event.key === 'Enter') sendToMax(); }
+        function handleMaxKeydown(event) { 
+            if (event.key === 'Enter') {
+                event.preventDefault(); // 阻止默认回车行为
+                sendToMax(); 
+            }
+        }
 
         function sendToMax() {
             const input = document.getElementById('maxInput');
+            if (!input) return;
             const text = input.value.trim();
             if (!text) return;
 
@@ -754,8 +763,9 @@
 
             saveState();
             
-            // 发送后立即清空输入框
+            // 绝对彻底清空输入框
             input.value = "";
+            maxState.mode = null;
 
             closeMaxChat(); 
             switchPage(1);  
