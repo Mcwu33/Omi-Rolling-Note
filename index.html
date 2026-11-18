@@ -56,10 +56,10 @@
                 <button onclick="closeProgressModal()" class="text-purple-300 hover:text-white text-lg font-bold px-2">✕</button>
             </div>
 
-            <!-- AI Max 提示语 -->
+            <!-- AI Max 优化高能提示语 -->
             <div class="bg-purple-900/50 p-3.5 rounded-2xl border border-purple-400/30 text-xs text-purple-100 leading-relaxed">
                 <b class="text-yellow-300">🤖 Secretary Max 提示：</b><br>
-                老板！这个项目或目标目前有什么突破进展需要记录？速速向我汇报！
+                老板！目前的突防进展如何？一切顺利吗？别忘了在此记录下最新节点，保持高能输出！🚀
             </div>
 
             <!-- 文本记录框 -->
@@ -77,7 +77,7 @@
         </div>
     </div>
 
-    <!-- 底部悬浮 AI 秘书 (Max) 右下角 + 智能催促气泡 -->
+    <!-- 底部悬浮 AI 秘书 (Max) 右下角 + 智能高能连环气泡 -->
     <div class="fixed right-6 bottom-20 flex items-center space-x-2 z-40">
         <div id="maxGreetingBubble" onclick="openMaxChat()" class="bubble-anim app-card px-3.5 py-2 rounded-2xl border border-yellow-400/50 shadow-xl cursor-pointer text-[11px] text-yellow-300 font-semibold tracking-wide whitespace-nowrap active:scale-95 transition"></div>
         <div onclick="openMaxChat()" class="w-12 h-12 bg-yellow-400 rounded-full shadow-2xl flex items-center justify-center cursor-pointer border-2 border-purple-950 active:scale-95 transition group relative" title="Secretary AI: Max">
@@ -170,33 +170,46 @@
         };
 
         let maxState = { mode: null, messages: [] };
-        let activeProgressTarget = { type: null, id: null }; // 记录当前正在写进展的目标类型 ('todo' 或 'goal')
+        let activeProgressTarget = { type: null, id: null };
 
-        function checkDailyLoginStatus() {
-            const todayStr = new Date().toDateString();
-            const lastLoginDate = localStorage.getItem('omi_last_login_date');
-            const hour = new Date().getHours();
-            let activeNotice = null;
+        // 智能高能催促引擎（结合 3 小时任务轰炸与每月 1 号目标审视）
+        function checkSmartTriggers() {
+            const now = new Date();
+            const todayDateNum = now.getDate(); // 几号
+            const lastGoalCheckMonth = localStorage.getItem('omi_last_goal_check_month');
+            const currentMonthStr = `${now.getFullYear()}-${now.getMonth()}`;
 
-            if (lastLoginDate !== todayStr) {
-                if (hour >= 8 && hour < 12) {
-                    activeNotice = "🔥 老板早安！您还没检查今天要干嘛，盘看了吗？";
-                } else if (hour >= 22 || hour < 2) {
-                    activeNotice = "🌙 老板，店里需要下订单吗？明天的工作准备好了吗？";
-                }
+            // 1. 每月 1 号宏大目标审视检查
+            if (todayDateNum === 1 && lastGoalCheckMonth !== currentMonthStr) {
+                localStorage.setItem('omi_last_goal_check_month', currentMonthStr);
+                return "🎯 帆海月度复盘！老板，新的一个月已开启，目前的宏大目标正稳健前行吗？";
             }
-            localStorage.setItem('omi_last_login_date', todayStr);
-            return activeNotice;
+
+            // 2. 活跃任务每 3 小时高能连环 Call
+            const lastTaskNotifyTime = parseInt(localStorage.getItem('omi_last_task_notify_time') || '0');
+            const threeHoursMs = 3 * 60 * 60 * 1000;
+            
+            if (now.getTime() - lastTaskNotifyTime > threeHoursMs && state.todos.length > 0) {
+                // 随机挑一个未完成的任务进行点名轰炸
+                const randomTodo = state.todos[Math.floor(Math.random() * state.todos.length)];
+                localStorage.setItem('omi_last_task_notify_time', now.getTime().toString());
+                return `🔥 报告老板！【${randomTodo.text}】进展如何？别忘记录进度或勾选完成！`;
+            }
+
+            return null;
         }
 
         function initRandomGreeting() {
             const bubble = document.getElementById('maxGreetingBubble');
             if (!bubble) return;
-            const urgentNotice = checkDailyLoginStatus();
-            if (urgentNotice) {
-                bubble.innerText = urgentNotice;
+
+            // 优先展示高能定时轰炸提示
+            const smartNotice = checkSmartTriggers();
+            if (smartNotice) {
+                bubble.innerText = smartNotice;
                 return;
             }
+
             const greetings = [
                 "Hello, what to do boss? 🫡",
                 "How are you today, Boss? ✨",
@@ -344,7 +357,7 @@
 
         function deleteTodo(id) { state.todos = state.todos.filter(t => t.id !== id); saveState(); render(); }
 
-        // ================= 日历历史档案 (增加 bin 左侧的 ↩️ 倒退/撤销键) =================
+        // ================= 日历历史档案 (含 ↩️ 撤销键) =================
         function openCalendarModal() {
             const container = document.getElementById('completedHistoryList');
             if (state.completedTodos.length === 0) {
@@ -360,7 +373,6 @@
                             </div>
                         </div>
                         <div class="flex items-center space-x-1.5">
-                            <!-- 新增：bin 左侧的倒退/撤销键 -->
                             <button onclick="revertCompletedTodo(${item.id})" class="text-yellow-400 hover:text-yellow-300 text-xs px-1.5 py-1 bg-purple-950/60 rounded-lg border border-yellow-400/30" title="撤销完成，返回Dashboard">↩️</button>
                             <button onclick="deleteCompletedHistory(${item.id})" class="text-red-400 hover:text-red-300 text-xs px-1.5" title="永久清除记录">🗑️</button>
                         </div>
@@ -372,17 +384,16 @@
 
         function closeCalendarModal() { document.getElementById('calendarModal').classList.add('hidden'); }
 
-        // 撤销已完成任务，打回 Dashboard
         function revertCompletedTodo(id) {
             const index = state.completedTodos.findIndex(item => item.id === id);
             if (index !== -1) {
                 const item = state.completedTodos[index];
                 item.completed = false;
                 delete item.finishedAt;
-                state.todos.push(item); // 放回待办列表
-                state.completedTodos.splice(index, 1); // 从历史中移除
+                state.todos.push(item);
+                state.completedTodos.splice(index, 1);
                 saveState();
-                openCalendarModal(); // 刷新弹窗
+                openCalendarModal();
             }
         }
 
@@ -392,8 +403,7 @@
             openCalendarModal();
         }
 
-
-        // ================= PAGE 2: PROGRESS & EXECUTION (双轨同步：待办区 + 浅灰分割线 + 大目标区) =================
+        // ================= PAGE 2: PROGRESS & EXECUTION =================
         function renderProgressPage(container) {
             container.innerHTML = `
                 <div class="text-center space-y-1 pt-1">
@@ -402,10 +412,10 @@
                 </div>
 
                 <div class="space-y-4 pt-2 pb-16">
-                    <!-- 上半部：Active Tasks (来自 To-do-List) -->
+                    <!-- 上半部：Active Tasks -->
                     <div class="space-y-2.5">
                         <div class="flex justify-between items-center px-1">
-                            <h3 class="text-xs font-bold text-yellow-300 uppercase tracking-widest">🔥 Active Tasks Sync (执行同步)</h3>
+                            <h3 class="text-xs font-bold text-yellow-300 uppercase tracking-widest">🔥 ACTIVE TASKS SYNC (执行同步)</h3>
                             <span class="text-[10px] text-purple-300">实时联动待办</span>
                         </div>
 
@@ -435,13 +445,13 @@
                         }).join('')}
                     </div>
 
-                    <!-- flexible 浅灰色分割线 -->
+                    <!-- 浅灰色分割线 -->
                     <div class="w-full h-[1px] bg-purple-300/20 my-4"></div>
 
-                    <!-- 下半部：Big Goals / Target (来自 Profile) -->
+                    <!-- 下半部：Big Goals / Target Sync -->
                     <div class="space-y-2.5">
                         <div class="flex justify-between items-center px-1">
-                            <h3 class="text-xs font-bold text-yellow-300 uppercase tracking-widest">🎯 Big Goals / Target Sync (宏大目标同步)</h3>
+                            <h3 class="text-xs font-bold text-yellow-300 uppercase tracking-widest">🎯 BIG GOALS / TARGET SYNC (宏大目标同步)</h3>
                             <span class="text-[10px] text-purple-300">实时联动 Profile</span>
                         </div>
 
@@ -471,12 +481,9 @@
             `;
         }
 
-        // 打开进展弹窗
         function openProgressModal(type, id) {
             activeProgressTarget = { type, id };
             let titleText = "";
-            const noteKey = `${type}__${id}`; // 注意区分key
-
             if (type === 'todo') {
                 const todo = state.todos.find(t => t.id === id);
                 if (todo) titleText = `任务: ${todo.text}`;
@@ -495,7 +502,6 @@
             activeProgressTarget = { type: null, id: null };
         }
 
-        // 保存进展记录
         function saveProgressNote() {
             if (!activeProgressTarget.type || !activeProgressTarget.id) return;
             const noteText = document.getElementById('progressNoteInput').value.trim();
