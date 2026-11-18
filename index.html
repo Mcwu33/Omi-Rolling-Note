@@ -42,14 +42,14 @@
     <!-- 隐藏的手机相册文件上传选择器 -->
     <input type="file" id="avatarFileInput" accept="image/*" class="hidden" onchange="handleImageUpload(event)">
 
-    <!-- 🔥 任务进展记录弹窗 (点击 Rhythm 页面的 Progress 触发) -->
+    <!-- 🔥 任务/目标进展记录弹窗 -->
     <div id="progressModal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex flex-col justify-end">
         <div class="app-card rounded-t-3xl p-6 border-t border-yellow-400/30 max-h-[85vh] flex flex-col space-y-4">
             <div class="flex justify-between items-center border-b border-purple-500/30 pb-3">
                 <div class="flex items-center space-x-2">
                     <span class="text-xl">🔥</span>
                     <div>
-                        <h3 class="font-bold text-sm text-yellow-300" id="modalTodoTitle">任务进展追踪</h3>
+                        <h3 class="font-bold text-sm text-yellow-300" id="modalTargetTitle">进展追踪</h3>
                         <p class="text-[10px] text-purple-200">Execution Progress Tracker</p>
                     </div>
                 </div>
@@ -59,13 +59,13 @@
             <!-- AI Max 提示语 -->
             <div class="bg-purple-900/50 p-3.5 rounded-2xl border border-purple-400/30 text-xs text-purple-100 leading-relaxed">
                 <b class="text-yellow-300">🤖 Secretary Max 提示：</b><br>
-                老板！这个核心任务目前的突破进展如何？请在此记录关键节点与细节！
+                老板！这个项目或目标目前有什么突破进展需要记录？速速向我汇报！
             </div>
 
-            <!-- Empty Note 文本记录框 -->
+            <!-- 文本记录框 -->
             <div class="flex-1 flex flex-col">
                 <label class="text-[10px] text-purple-300 font-semibold mb-1">📝 进展记录备忘 (Progress Note)</label>
-                <textarea id="progressNoteInput" placeholder="记录当前阶段进展、遇到阻碍或下一步计划..." class="w-full h-36 bg-purple-950/80 border border-purple-400/50 rounded-2xl p-3 text-xs text-white placeholder-purple-400/65 resize-none focus:outline-none focus:border-yellow-400 shadow-inner"></textarea>
+                <textarea id="progressNoteInput" placeholder="记录当前阶段进展、遇到阻碍或下一步行动..." class="w-full h-36 bg-purple-950/80 border border-purple-400/50 rounded-2xl p-3 text-xs text-white placeholder-purple-400/65 resize-none focus:outline-none focus:border-yellow-400 shadow-inner"></textarea>
             </div>
 
             <!-- 底部中央 Save 按钮 -->
@@ -94,7 +94,7 @@
         </button>
         <button onclick="switchPage(2)" id="navBtn2" class="flex flex-col items-center text-purple-300 hover:text-white transition">
             <span class="text-xl">⚡</span>
-            <span class="text-[10px] mt-1 font-semibold">Rhythm</span>
+            <span class="text-[10px] mt-1 font-semibold">Progress</span>
         </button>
         <button onclick="switchPage(3)" id="navBtn3" class="flex flex-col items-center text-purple-300 hover:text-white transition">
             <span class="text-xl">👤</span>
@@ -129,7 +129,7 @@
                     <p class="text-[10px] text-purple-200">AI 智能助理 • 随时待命</p>
                 </div>
             </div>
-            <button onclick="closeMaxChat()" class="text-purple-300 hover:text-white text-xl font-bold p-2">✕</button>
+            <button onclick="closeMaxChat()" class="text-purple-300 hover:text-white text-lg font-bold p-2">✕</button>
         </div>
 
         <div id="maxChatBox" class="flex-1 overflow-y-auto space-y-3 my-4 pr-1 text-xs text-purple-100"></div>
@@ -166,11 +166,11 @@
             todos: JSON.parse(localStorage.getItem('omi_todos')) || [],
             completedTodos: JSON.parse(localStorage.getItem('omi_completed_todos')) || [],
             bigGoals: JSON.parse(localStorage.getItem('omi_goals')) || [],
-            progressNotes: JSON.parse(localStorage.getItem('omi_progress_notes')) || {} // 存储各任务进展记录
+            progressNotes: JSON.parse(localStorage.getItem('omi_progress_notes')) || {}
         };
 
         let maxState = { mode: null, messages: [] };
-        let activeProgressTodoId = null; // 当前正在写进展的任务ID
+        let activeProgressTarget = { type: null, id: null }; // 记录当前正在写进展的目标类型 ('todo' 或 'goal')
 
         function checkDailyLoginStatus() {
             const todayStr = new Date().toDateString();
@@ -231,7 +231,7 @@
         function render() {
             const container = document.getElementById('mainContent');
             if (state.currentPage === 1) renderDashboard(container);
-            else if (state.currentPage === 2) renderRhythmPage(container);
+            else if (state.currentPage === 2) renderProgressPage(container);
             else if (state.currentPage === 3) renderProfile(container);
             initRandomGreeting();
         }
@@ -344,6 +344,7 @@
 
         function deleteTodo(id) { state.todos = state.todos.filter(t => t.id !== id); saveState(); render(); }
 
+        // ================= 日历历史档案 (增加 bin 左侧的 ↩️ 倒退/撤销键) =================
         function openCalendarModal() {
             const container = document.getElementById('completedHistoryList');
             if (state.completedTodos.length === 0) {
@@ -351,14 +352,18 @@
             } else {
                 container.innerHTML = state.completedTodos.map(item => `
                     <div class="app-card p-3 rounded-xl border border-yellow-400/30 flex items-center justify-between shadow-sm">
-                        <div class="flex flex-col space-y-1">
+                        <div class="flex flex-col space-y-1 flex-1 mr-2">
                             <span class="text-xs text-white line-through opacity-90 font-medium">${item.text}</span>
                             <div class="flex flex-col space-y-0.5 text-[9px]">
                                 <span class="text-purple-300">📌 建立于: ${item.createdAt || '未知'}</span>
                                 <span class="text-yellow-300">✅ 完成于: ${item.finishedAt || item.date}</span>
                             </div>
                         </div>
-                        <button onclick="deleteCompletedHistory(${item.id})" class="text-red-400 hover:text-red-300 text-xs px-2" title="清除记录">🗑️</button>
+                        <div class="flex items-center space-x-1.5">
+                            <!-- 新增：bin 左侧的倒退/撤销键 -->
+                            <button onclick="revertCompletedTodo(${item.id})" class="text-yellow-400 hover:text-yellow-300 text-xs px-1.5 py-1 bg-purple-950/60 rounded-lg border border-yellow-400/30" title="撤销完成，返回Dashboard">↩️</button>
+                            <button onclick="deleteCompletedHistory(${item.id})" class="text-red-400 hover:text-red-300 text-xs px-1.5" title="永久清除记录">🗑️</button>
+                        </div>
                     </div>
                 `).join('');
             }
@@ -366,28 +371,49 @@
         }
 
         function closeCalendarModal() { document.getElementById('calendarModal').classList.add('hidden'); }
-        function deleteCompletedHistory(id) { state.completedTodos = state.completedTodos.filter(item => item.id !== id); saveState(); openCalendarModal(); }
+
+        // 撤销已完成任务，打回 Dashboard
+        function revertCompletedTodo(id) {
+            const index = state.completedTodos.findIndex(item => item.id === id);
+            if (index !== -1) {
+                const item = state.completedTodos[index];
+                item.completed = false;
+                delete item.finishedAt;
+                state.todos.push(item); // 放回待办列表
+                state.completedTodos.splice(index, 1); // 从历史中移除
+                saveState();
+                openCalendarModal(); // 刷新弹窗
+            }
+        }
+
+        function deleteCompletedHistory(id) {
+            state.completedTodos = state.completedTodos.filter(item => item.id !== id);
+            saveState();
+            openCalendarModal();
+        }
 
 
-        // ================= PAGE 2: RHYTHM & EXECUTION (同步图1待办 + 火焰Progress按钮) =================
-        function renderRhythmPage(container) {
+        // ================= PAGE 2: PROGRESS & EXECUTION (双轨同步：待办区 + 浅灰分割线 + 大目标区) =================
+        function renderProgressPage(container) {
             container.innerHTML = `
                 <div class="text-center space-y-1 pt-1">
-                    <h2 class="text-lg font-black tracking-wide text-yellow-300">⚡ Rhythm & Execution</h2>
-                    <p class="text-[10px] text-purple-200">高能节奏与核心任务执行进度控制台</p>
+                    <h2 class="text-lg font-black tracking-wide text-yellow-300">⚡ Progress & Execution</h2>
+                    <p class="text-[10px] text-purple-200">核心任务与宏大目标执行进度控制台</p>
                 </div>
 
-                <div class="space-y-3 pt-2 pb-16">
-                    <div class="flex justify-between items-center px-1">
-                        <h3 class="text-xs font-bold text-yellow-300 uppercase tracking-widest">🔥 Active Tasks Sync (执行同步)</h3>
-                        <span class="text-[10px] text-purple-300">实时联动图1待办</span>
-                    </div>
-
+                <div class="space-y-4 pt-2 pb-16">
+                    <!-- 上半部：Active Tasks (来自 To-do-List) -->
                     <div class="space-y-2.5">
-                        ${state.todos.length === 0 ? '<div class="app-card p-6 rounded-2xl text-center text-xs text-purple-300 border border-purple-400/30">当前暂无待办事项，请前往 Dashboard 添加任务 🚀</div>' : ''}
+                        <div class="flex justify-between items-center px-1">
+                            <h3 class="text-xs font-bold text-yellow-300 uppercase tracking-widest">🔥 Active Tasks Sync (执行同步)</h3>
+                            <span class="text-[10px] text-purple-300">实时联动待办</span>
+                        </div>
+
+                        ${state.todos.length === 0 ? '<div class="app-card p-4 rounded-2xl text-center text-xs text-purple-300 border border-purple-400/30">当前暂无待办事项 🚀</div>' : ''}
                         
                         ${state.todos.map(todo => {
-                            const hasNote = state.progressNotes[todo.id];
+                            const noteKey = `todo_${todo.id}`;
+                            const hasNote = state.progressNotes[noteKey];
                             return `
                                 <div class="app-card p-3.5 rounded-2xl border border-purple-400/30 flex flex-col space-y-2 shadow-lg">
                                     <div class="flex justify-between items-center">
@@ -395,14 +421,46 @@
                                             <span class="text-xs font-bold text-white">${todo.text}</span>
                                             <span class="text-[9px] text-purple-300 mt-0.5">📅 目标日期: ${todo.date}</span>
                                         </div>
-                                        <!-- 带有动态火焰效果的 Progress 按钮 -->
-                                        <button onclick="openProgressModal(${todo.id})" class="fire-card px-3 py-1.5 rounded-xl text-[11px] font-bold text-yellow-300 bg-purple-950/60 active:scale-95 transition whitespace-nowrap shadow-md">
+                                        <button onclick="openProgressModal('todo', ${todo.id})" class="fire-card px-3 py-1.5 rounded-xl text-[11px] font-bold text-yellow-300 bg-purple-950/60 active:scale-95 transition whitespace-nowrap shadow-md">
                                             🔥 Progress
                                         </button>
                                     </div>
                                     ${hasNote ? `
                                         <div class="bg-purple-950/60 p-2.5 rounded-xl border border-yellow-400/20 text-[11px] text-purple-200">
-                                            <b class="text-yellow-300 text-[10px]">📌 最新进展备注：</b><br>${hasNote}
+                                            <b class="text-yellow-300 text-[10px]">📌 进展备注：</b><br>${hasNote}
+                                        </div>
+                                    ` : ''}
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+
+                    <!-- flexible 浅灰色分割线 -->
+                    <div class="w-full h-[1px] bg-purple-300/20 my-4"></div>
+
+                    <!-- 下半部：Big Goals / Target (来自 Profile) -->
+                    <div class="space-y-2.5">
+                        <div class="flex justify-between items-center px-1">
+                            <h3 class="text-xs font-bold text-yellow-300 uppercase tracking-widest">🎯 Big Goals / Target Sync (宏大目标同步)</h3>
+                            <span class="text-[10px] text-purple-300">实时联动 Profile</span>
+                        </div>
+
+                        ${state.bigGoals.length === 0 ? '<div class="app-card p-4 rounded-2xl text-center text-xs text-purple-300 border border-purple-400/30">当前暂无宏大目标，请前往 Profile 添加 🎯</div>' : ''}
+                        
+                        ${state.bigGoals.map(goal => {
+                            const noteKey = `goal_${goal.id}`;
+                            const hasNote = state.progressNotes[noteKey];
+                            return `
+                                <div class="app-card p-3.5 rounded-2xl border border-purple-400/30 flex flex-col space-y-2 shadow-lg">
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-xs font-bold text-white flex-1 mr-2">${goal.text}</span>
+                                        <button onclick="openProgressModal('goal', ${goal.id})" class="fire-card px-3 py-1.5 rounded-xl text-[11px] font-bold text-yellow-300 bg-purple-950/60 active:scale-95 transition whitespace-nowrap shadow-md">
+                                            🔥 Progress
+                                        </button>
+                                    </div>
+                                    ${hasNote ? `
+                                        <div class="bg-purple-950/60 p-2.5 rounded-xl border border-yellow-400/20 text-[11px] text-purple-200">
+                                            <b class="text-yellow-300 text-[10px]">📌 目标进展备注：</b><br>${hasNote}
                                         </div>
                                     ` : ''}
                                 </div>
@@ -413,31 +471,40 @@
             `;
         }
 
-        // 打开 Progress 弹窗
-        function openProgressModal(todoId) {
-            activeProgressTodoId = todoId;
-            const todo = state.todos.find(t => t.id === todoId);
-            if (!todo) return;
+        // 打开进展弹窗
+        function openProgressModal(type, id) {
+            activeProgressTarget = { type, id };
+            let titleText = "";
+            const noteKey = `${type}__${id}`; // 注意区分key
 
-            document.getElementById('modalTodoTitle').innerText = `任务: ${todo.text}`;
-            document.getElementById('progressNoteInput').value = state.progressNotes[todoId] || "";
+            if (type === 'todo') {
+                const todo = state.todos.find(t => t.id === id);
+                if (todo) titleText = `任务: ${todo.text}`;
+            } else {
+                const goal = state.bigGoals.find(g => g.id === id);
+                if (goal) titleText = `目标: ${goal.text}`;
+            }
+
+            document.getElementById('modalTargetTitle').innerText = titleText;
+            document.getElementById('progressNoteInput').value = state.progressNotes[`${type}_${id}`] || "";
             document.getElementById('progressModal').classList.remove('hidden');
         }
 
         function closeProgressModal() {
             document.getElementById('progressModal').classList.add('hidden');
-            activeProgressTodoId = null;
+            activeProgressTarget = { type: null, id: null };
         }
 
-        // 保存进展记录并自动退出
+        // 保存进展记录
         function saveProgressNote() {
-            if (activeProgressTodoId === null) return;
+            if (!activeProgressTarget.type || !activeProgressTarget.id) return;
             const noteText = document.getElementById('progressNoteInput').value.trim();
-            
+            const noteKey = `${activeProgressTarget.type}_${activeProgressTarget.id}`;
+
             if (noteText) {
-                state.progressNotes[activeProgressTodoId] = noteText;
+                state.progressNotes[noteKey] = noteText;
             } else {
-                delete state.progressNotes[activeProgressTodoId];
+                delete state.progressNotes[noteKey];
             }
 
             saveState();
