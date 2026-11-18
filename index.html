@@ -42,6 +42,41 @@
     <!-- 隐藏的手机相册文件上传选择器 -->
     <input type="file" id="avatarFileInput" accept="image/*" class="hidden" onchange="handleImageUpload(event)">
 
+    <!-- 🔥 任务进展记录弹窗 (点击 Rhythm 页面的 Progress 触发) -->
+    <div id="progressModal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex flex-col justify-end">
+        <div class="app-card rounded-t-3xl p-6 border-t border-yellow-400/30 max-h-[85vh] flex flex-col space-y-4">
+            <div class="flex justify-between items-center border-b border-purple-500/30 pb-3">
+                <div class="flex items-center space-x-2">
+                    <span class="text-xl">🔥</span>
+                    <div>
+                        <h3 class="font-bold text-sm text-yellow-300" id="modalTodoTitle">任务进展追踪</h3>
+                        <p class="text-[10px] text-purple-200">Execution Progress Tracker</p>
+                    </div>
+                </div>
+                <button onclick="closeProgressModal()" class="text-purple-300 hover:text-white text-lg font-bold px-2">✕</button>
+            </div>
+
+            <!-- AI Max 提示语 -->
+            <div class="bg-purple-900/50 p-3.5 rounded-2xl border border-purple-400/30 text-xs text-purple-100 leading-relaxed">
+                <b class="text-yellow-300">🤖 Secretary Max 提示：</b><br>
+                老板！这个核心任务目前的突破进展如何？请在此记录关键节点与细节！
+            </div>
+
+            <!-- Empty Note 文本记录框 -->
+            <div class="flex-1 flex flex-col">
+                <label class="text-[10px] text-purple-300 font-semibold mb-1">📝 进展记录备忘 (Progress Note)</label>
+                <textarea id="progressNoteInput" placeholder="记录当前阶段进展、遇到阻碍或下一步计划..." class="w-full h-36 bg-purple-950/80 border border-purple-400/50 rounded-2xl p-3 text-xs text-white placeholder-purple-400/65 resize-none focus:outline-none focus:border-yellow-400 shadow-inner"></textarea>
+            </div>
+
+            <!-- 底部中央 Save 按钮 -->
+            <div class="pt-2 pb-4 flex justify-center">
+                <button onclick="saveProgressNote()" class="bg-yellow-400 text-purple-950 font-black px-8 py-3 rounded-2xl text-xs shadow-lg active:scale-95 transition tracking-wider">
+                    💾 SAVE PROGRESS
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- 底部悬浮 AI 秘书 (Max) 右下角 + 智能催促气泡 -->
     <div class="fixed right-6 bottom-20 flex items-center space-x-2 z-40">
         <div id="maxGreetingBubble" onclick="openMaxChat()" class="bubble-anim app-card px-3.5 py-2 rounded-2xl border border-yellow-400/50 shadow-xl cursor-pointer text-[11px] text-yellow-300 font-semibold tracking-wide whitespace-nowrap active:scale-95 transition"></div>
@@ -130,10 +165,12 @@
             memoText: localStorage.getItem('omi_memo') || "",
             todos: JSON.parse(localStorage.getItem('omi_todos')) || [],
             completedTodos: JSON.parse(localStorage.getItem('omi_completed_todos')) || [],
-            bigGoals: JSON.parse(localStorage.getItem('omi_goals')) || []
+            bigGoals: JSON.parse(localStorage.getItem('omi_goals')) || [],
+            progressNotes: JSON.parse(localStorage.getItem('omi_progress_notes')) || {} // 存储各任务进展记录
         };
 
         let maxState = { mode: null, messages: [] };
+        let activeProgressTodoId = null; // 当前正在写进展的任务ID
 
         function checkDailyLoginStatus() {
             const todayStr = new Date().toDateString();
@@ -176,6 +213,7 @@
             localStorage.setItem('omi_todos', JSON.stringify(state.todos));
             localStorage.setItem('omi_completed_todos', JSON.stringify(state.completedTodos));
             localStorage.setItem('omi_goals', JSON.stringify(state.bigGoals));
+            localStorage.setItem('omi_progress_notes', JSON.stringify(state.progressNotes));
             localStorage.setItem('omi_avatar', state.userProfile.avatar);
         }
 
@@ -331,35 +369,80 @@
         function deleteCompletedHistory(id) { state.completedTodos = state.completedTodos.filter(item => item.id !== id); saveState(); openCalendarModal(); }
 
 
-        // ================= PAGE 2: RHYTHM & FOCUS CHRONO (纯净高能节奏页) =================
+        // ================= PAGE 2: RHYTHM & EXECUTION (同步图1待办 + 火焰Progress按钮) =================
         function renderRhythmPage(container) {
             container.innerHTML = `
-                <div class="text-center space-y-2 pt-2">
+                <div class="text-center space-y-1 pt-1">
                     <h2 class="text-lg font-black tracking-wide text-yellow-300">⚡ Rhythm & Execution</h2>
-                    <p class="text-[10px] text-purple-200">高能节奏与专注控制台</p>
+                    <p class="text-[10px] text-purple-200">高能节奏与核心任务执行进度控制台</p>
                 </div>
 
-                <div class="app-card p-5 rounded-2xl border border-purple-400/30 text-center space-y-3 shadow-lg mt-4">
-                    <div class="text-xs font-bold text-yellow-300 uppercase tracking-widest">🔥 Daily Productivity Core</div>
-                    <p class="text-xs text-purple-100 leading-relaxed">
-                        保持高频执行力，兼顾 F&B 门店运营、团队管理与深夜代码狂飙。把每个当下做到极致！
-                    </p>
-                    <div class="pt-2">
-                        <span class="inline-block bg-yellow-400 text-purple-950 font-bold px-4 py-2 rounded-xl text-xs shadow-md">
-                            当前状态：全速通关中 🚀
-                        </span>
+                <div class="space-y-3 pt-2 pb-16">
+                    <div class="flex justify-between items-center px-1">
+                        <h3 class="text-xs font-bold text-yellow-300 uppercase tracking-widest">🔥 Active Tasks Sync (执行同步)</h3>
+                        <span class="text-[10px] text-purple-300">实时联动图1待办</span>
+                    </div>
+
+                    <div class="space-y-2.5">
+                        ${state.todos.length === 0 ? '<div class="app-card p-6 rounded-2xl text-center text-xs text-purple-300 border border-purple-400/30">当前暂无待办事项，请前往 Dashboard 添加任务 🚀</div>' : ''}
+                        
+                        ${state.todos.map(todo => {
+                            const hasNote = state.progressNotes[todo.id];
+                            return `
+                                <div class="app-card p-3.5 rounded-2xl border border-purple-400/30 flex flex-col space-y-2 shadow-lg">
+                                    <div class="flex justify-between items-center">
+                                        <div class="flex flex-col flex-1 mr-2">
+                                            <span class="text-xs font-bold text-white">${todo.text}</span>
+                                            <span class="text-[9px] text-purple-300 mt-0.5">📅 目标日期: ${todo.date}</span>
+                                        </div>
+                                        <!-- 带有动态火焰效果的 Progress 按钮 -->
+                                        <button onclick="openProgressModal(${todo.id})" class="fire-card px-3 py-1.5 rounded-xl text-[11px] font-bold text-yellow-300 bg-purple-950/60 active:scale-95 transition whitespace-nowrap shadow-md">
+                                            🔥 Progress
+                                        </button>
+                                    </div>
+                                    ${hasNote ? `
+                                        <div class="bg-purple-950/60 p-2.5 rounded-xl border border-yellow-400/20 text-[11px] text-purple-200">
+                                            <b class="text-yellow-300 text-[10px]">📌 最新进展备注：</b><br>${hasNote}
+                                        </div>
+                                    ` : ''}
+                                </div>
+                            `;
+                        }).join('')}
                     </div>
                 </div>
-
-                <div class="app-card p-5 rounded-2xl border border-purple-400/30 space-y-3 shadow-lg">
-                    <div class="text-xs font-bold text-yellow-300">💡 Secretary Max Tips</div>
-                    <ul class="text-xs text-purple-100 space-y-2 list-disc list-inside">
-                        <li>合理分配上午的库存盘点与下午的核心业务推进。</li>
-                        <li>深夜是代码架构重构与独立开发的绝对主场。</li>
-                        <li>定期通过右上角日历复盘已完成任务的耗时，优化效率。</li>
-                    </ul>
-                </div>
             `;
+        }
+
+        // 打开 Progress 弹窗
+        function openProgressModal(todoId) {
+            activeProgressTodoId = todoId;
+            const todo = state.todos.find(t => t.id === todoId);
+            if (!todo) return;
+
+            document.getElementById('modalTodoTitle').innerText = `任务: ${todo.text}`;
+            document.getElementById('progressNoteInput').value = state.progressNotes[todoId] || "";
+            document.getElementById('progressModal').classList.remove('hidden');
+        }
+
+        function closeProgressModal() {
+            document.getElementById('progressModal').classList.add('hidden');
+            activeProgressTodoId = null;
+        }
+
+        // 保存进展记录并自动退出
+        function saveProgressNote() {
+            if (activeProgressTodoId === null) return;
+            const noteText = document.getElementById('progressNoteInput').value.trim();
+            
+            if (noteText) {
+                state.progressNotes[activeProgressTodoId] = noteText;
+            } else {
+                delete state.progressNotes[activeProgressTodoId];
+            }
+
+            saveState();
+            closeProgressModal();
+            render();
         }
 
         // ================= PAGE 3: USER PROFILE =================
