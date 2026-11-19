@@ -55,7 +55,7 @@
     </div>
 
     <!-- 主内容区域 -->
-    <div id="mainContent" class="flex-1 overflow-y-auto p-4 space-y-4 pb-20 page-transition relative"></div>
+    <div id="mainContent" class="flex-1 overflow-y-auto p-4 space-y-4 pb-28 page-transition relative"></div>
 
     <!-- 隐藏的手机相册文件上传选择器 -->
     <input type="file" id="avatarFileInput" accept="image/*" class="hidden" onchange="handleImageUpload(event)">
@@ -95,10 +95,10 @@
         </div>
     </div>
 
-    <!-- 底部悬浮 AI 秘书 (Max) 右下角 + 智能高能连环气泡 -->
-    <div class="fixed right-6 bottom-20 flex items-center space-x-2 z-40">
-        <div id="maxGreetingBubble" onclick="openMaxChat()" class="bubble-anim app-card px-3.5 py-2 rounded-2xl border border-yellow-400/50 shadow-xl cursor-pointer text-[11px] text-yellow-300 font-semibold tracking-wide whitespace-nowrap active:scale-95 transition"></div>
-        <div onclick="openMaxChat()" class="w-12 h-12 bg-yellow-400 rounded-full shadow-2xl flex items-center justify-center cursor-pointer border-2 border-purple-950 active:scale-95 transition group relative" title="Secretary AI: Max">
+    <!-- 底部悬浮 AI 秘书 (Max) 右下角 + 自适应换行气泡（已修复溢出屏幕问题） -->
+    <div class="fixed left-0 right-0 max-w-md mx-auto bottom-20 px-4 flex items-center justify-end space-x-2.5 z-40 pointer-events-none">
+        <div id="maxGreetingBubble" onclick="openMaxChat()" class="pointer-events-auto bubble-anim app-card px-3.5 py-2 rounded-2xl border border-yellow-400/50 shadow-xl cursor-pointer text-[11px] text-yellow-300 font-semibold tracking-wide max-w-[calc(100%-64px)] whitespace-normal break-words leading-snug active:scale-95 transition"></div>
+        <div onclick="openMaxChat()" class="pointer-events-auto w-12 h-12 bg-yellow-400 rounded-full shadow-2xl flex items-center justify-center cursor-pointer border-2 border-purple-950 active:scale-95 transition group relative shrink-0" title="Secretary AI: Max">
             <span class="text-xl">🤖</span>
             <span class="absolute -top-1 -right-1 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-purple-950"></span>
         </div>
@@ -172,7 +172,7 @@
     </div>
 
     <script>
-        // --- 核心全局状态数据 ---
+        // --- 核心全局状态数据 (100% 沿用原装 localStorage Key，旧数据完整继承) ---
         let state = {
             currentPage: 1,
             userProfile: {
@@ -187,8 +187,42 @@
             progressNotes: JSON.parse(localStorage.getItem('omi_progress_notes')) || {}
         };
 
+        // 自动为旧的待办记录补齐默认 stars: 0，不破坏任何已有字段
+        state.todos = state.todos.map(t => ({
+            ...t,
+            stars: typeof t.stars === 'number' ? t.stars : 0
+        }));
+
         let maxState = { mode: null, messages: [] };
         let activeProgressTarget = { type: null, id: null };
+
+        // 设置星星紧急度：点第 N 颗设为 N 星；如果当前已经是 N 星，再点一次清零为 0 星
+        function setTodoStars(id, starValue) {
+            const todo = state.todos.find(t => t.id === id);
+            if (!todo) return;
+            todo.stars = (todo.stars === starValue) ? 0 : starValue;
+            saveState();
+            render();
+        }
+
+        // 生成 5 颗星选择栏 HTML
+        function renderStarsBar(todo) {
+            const stars = todo.stars || 0;
+            let btns = '';
+            for (let s = 1; s <= 5; s++) {
+                const active = s <= stars;
+                btns += `<button type="button" onclick="setTodoStars(${todo.id}, ${s})" class="text-sm leading-none px-0.5 active:scale-125 transition ${active ? 'text-yellow-300' : 'text-purple-300/40 hover:text-yellow-200'}" title="${s} 颗星">${active ? '★' : '☆'}</button>`;
+            }
+            const label = stars === 0 ? '0星 · 不急' : `${stars}星${stars === 5 ? ' · 很紧急' : ''}`;
+            return `
+                <div class="flex items-center space-x-1.5 mt-1">
+                    <div class="flex items-center bg-purple-950/60 px-1.5 py-0.5 rounded-lg border border-purple-400/20">
+                        ${btns}
+                    </div>
+                    <span class="text-[9px] ${stars >= 4 ? 'text-orange-300 font-bold' : (stars > 0 ? 'text-yellow-300' : 'text-purple-300/75')}">${label}</span>
+                </div>
+            `;
+        }
 
         // 智能高能催促引擎
         function checkSmartTriggers() {
@@ -387,24 +421,28 @@
                     <textarea id="memoInput" oninput="updateMemo(this.value)" placeholder="随时记录闪现灵感、临时想法..." class="flex-1 bg-transparent text-xs text-white placeholder-purple-400/65 resize-none focus:outline-none">${state.memoText}</textarea>
                 </div>
 
-                <div class="space-y-2 pb-6">
+                <div class="space-y-2 pb-12">
                     <div class="flex justify-between items-center">
-                        <h3 class="text-sm font-bold tracking-wide">To-do-List</h3>
+                        <div class="flex items-center space-x-2">
+                            <h3 class="text-sm font-bold tracking-wide">To-do-List</h3>
+                            <span class="text-[9px] text-purple-300">(点星星设定紧急度 0~5★)</span>
+                        </div>
                         <button onclick="addTodoItem()" class="w-7 h-7 bg-yellow-400 text-purple-950 font-black rounded-lg flex items-center justify-center shadow-md active:scale-95 transition text-base">+</button>
                     </div>
 
                     <div id="todoListContainer" class="space-y-2">
                         ${state.todos.length === 0 ? '<p class="text-[11px] text-purple-300 text-center py-4">暂无待办事项，点击右上角 + 开始添加</p>' : ''}
                         ${state.todos.map((todo) => `
-                            <div class="app-card p-3 rounded-xl border border-purple-500/30 flex items-center justify-between shadow-sm">
-                                <div class="flex items-center space-x-3 flex-1 mr-2">
-                                    <input type="checkbox" onclick="completeTodo(${todo.id})" ${todo.completed ? 'checked' : ''} class="w-4 h-4 accent-yellow-400 cursor-pointer">
-                                    <div class="flex flex-col">
-                                        <span class="text-xs text-white ${todo.completed ? 'line-through opacity-50' : ''}">${todo.text}</span>
-                                        <span class="text-[9px] text-purple-300">📅 ${todo.date}</span>
+                            <div class="app-card p-3 rounded-xl border border-purple-500/30 flex items-start justify-between shadow-sm">
+                                <div class="flex items-start space-x-3 flex-1 mr-2 min-w-0">
+                                    <input type="checkbox" onclick="completeTodo(${todo.id})" ${todo.completed ? 'checked' : ''} class="mt-0.5 w-4 h-4 accent-yellow-400 cursor-pointer shrink-0">
+                                    <div class="flex flex-col flex-1 min-w-0">
+                                        <span class="text-xs text-white break-words ${todo.completed ? 'line-through opacity-50' : ''}">${todo.text}</span>
+                                        <span class="text-[9px] text-purple-300 mt-0.5">📅 ${todo.date}</span>
+                                        ${renderStarsBar(todo)}
                                     </div>
                                 </div>
-                                <div class="flex items-center space-x-1">
+                                <div class="flex items-center space-x-1 shrink-0">
                                     <button onclick="editTodoItem(${todo.id})" class="text-purple-300 hover:text-white p-1 text-xs" title="Edit">✏️</button>
                                     <button onclick="deleteTodo(${todo.id})" class="text-red-400 hover:text-red-300 p-1 text-xs" title="Delete">🗑️</button>
                                 </div>
@@ -421,7 +459,7 @@
             if (!text) return;
             const date = prompt("请输入日期 (格式 YYYY-MM-DD):", new Date().toISOString().split('T')[0]);
             const createdAtStr = new Date().toLocaleString('zh-CN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-            state.todos.push({ id: Date.now(), text, completed: false, date: date || "今日", createdAt: createdAtStr });
+            state.todos.push({ id: Date.now(), text, completed: false, date: date || "今日", createdAt: createdAtStr, stars: 0 });
             saveState(); render();
         }
 
@@ -498,35 +536,40 @@
             openCalendarModal();
         }
 
-        // ================= PAGE 2: PROGRESS & EXECUTION =================
+        // ================= PAGE 2: PROGRESS & EXECUTION (按星星数量从高到低排序) =================
         function renderProgressPage(container) {
+            // 复制一份待办列表，按星星数量降序排列（5★ -> 0★）
+            const sortedTodos = [...state.todos].sort((a, b) => (b.stars || 0) - (a.stars || 0));
+
             container.innerHTML = `
                 <div class="text-center space-y-1 pt-1">
                     <h2 class="text-lg font-black tracking-wide text-yellow-300">⚡ Progress & Execution</h2>
-                    <p class="text-[10px] text-purple-200">核心任务与宏大目标执行进度控制台 (可左右滑动或下拉刷新)</p>
+                    <p class="text-[10px] text-purple-200">已自动按重要程度排序 (5★ 极紧急 → 0★ 不急)</p>
                 </div>
 
-                <div class="space-y-4 pt-2 pb-16">
-                    <!-- 上半部：Active Tasks -->
+                <div class="space-y-4 pt-2 pb-20">
+                    <!-- 上半部：Active Tasks (按星级排序) -->
                     <div class="space-y-2.5">
                         <div class="flex justify-between items-center px-1">
-                            <h3 class="text-xs font-bold text-yellow-300 uppercase tracking-widest">🔥 ACTIVE TASKS SYNC (执行同步)</h3>
-                            <span class="text-[10px] text-purple-300">实时联动待办</span>
+                            <h3 class="text-xs font-bold text-yellow-300 uppercase tracking-widest">🔥 ACTIVE TASKS SYNC (按星级优先度)</h3>
+                            <span class="text-[10px] text-purple-300">5★ → 0★</span>
                         </div>
 
-                        ${state.todos.length === 0 ? '<div class="app-card p-4 rounded-2xl text-center text-xs text-purple-300 border border-purple-400/30">当前暂无待办事项 🚀</div>' : ''}
+                        ${sortedTodos.length === 0 ? '<div class="app-card p-4 rounded-2xl text-center text-xs text-purple-300 border border-purple-400/30">当前暂无待办事项 🚀</div>' : ''}
                         
-                        ${state.todos.map(todo => {
+                        ${sortedTodos.map(todo => {
                             const noteKey = `todo_${todo.id}`;
                             const hasNote = state.progressNotes[noteKey];
+                            const isUrgent = (todo.stars || 0) >= 4;
                             return `
-                                <div class="app-card p-3.5 rounded-2xl border border-purple-400/30 flex flex-col space-y-2 shadow-lg">
-                                    <div class="flex justify-between items-center">
-                                        <div class="flex flex-col flex-1 mr-2">
-                                            <span class="text-xs font-bold text-white">${todo.text}</span>
+                                <div class="app-card p-3.5 rounded-2xl border ${isUrgent ? 'border-orange-400/60' : 'border-purple-400/30'} flex flex-col space-y-2 shadow-lg">
+                                    <div class="flex justify-between items-start">
+                                        <div class="flex flex-col flex-1 mr-2 min-w-0">
+                                            <span class="text-xs font-bold text-white break-words">${todo.text}</span>
                                             <span class="text-[9px] text-purple-300 mt-0.5">📅 目标日期: ${todo.date}</span>
+                                            ${renderStarsBar(todo)}
                                         </div>
-                                        <button onclick="openProgressModal('todo', ${todo.id})" class="fire-card px-3 py-1.5 rounded-xl text-[11px] font-bold text-yellow-300 bg-purple-950/60 active:scale-95 transition whitespace-nowrap shadow-md">
+                                        <button onclick="openProgressModal('todo', ${todo.id})" class="fire-card px-3 py-1.5 rounded-xl text-[11px] font-bold text-yellow-300 bg-purple-950/60 active:scale-95 transition whitespace-nowrap shadow-md shrink-0">
                                             🔥 Progress
                                         </button>
                                     </div>
@@ -629,7 +672,7 @@
                         “ ${state.userProfile.slogan} ”
                     </div>
                 </div>
-                <div class="space-y-3 pt-4 pb-12">
+                <div class="space-y-3 pt-4 pb-16">
                     <div class="flex justify-between items-center px-1">
                         <h3 class="text-sm font-bold tracking-wide">🎯 ${state.userProfile.name}'s Big Goals / Target</h3>
                         <button onclick="addGoalItem()" class="w-7 h-7 bg-yellow-400 text-purple-950 font-black rounded-lg flex items-center justify-center shadow-md active:scale-95 transition text-base">+</button>
@@ -673,12 +716,11 @@
         }
         function deleteGoal(id) { state.bigGoals = state.bigGoals.filter(g => g.id !== id); saveState(); render(); }
 
-        // ================= AI SECRETARY MAX FULLSCREEN CHAT (绝对彻底清空版) =================
+        // ================= AI SECRETARY MAX FULLSCREEN CHAT =================
         function openMaxChat() {
             maxState.mode = null;
             maxState.messages = [];
             
-            // 每次打开时，彻底抹掉输入框的值并聚焦
             const inputField = document.getElementById('maxInput');
             if (inputField) {
                 inputField.value = "";
@@ -726,7 +768,6 @@
             `;
             chatBox.scrollTop = chatBox.scrollHeight;
             
-            // 模式切换时双重保障清空并聚焦
             const inputField = document.getElementById('maxInput');
             if (inputField) {
                 inputField.value = "";
@@ -736,7 +777,7 @@
 
         function handleMaxKeydown(event) { 
             if (event.key === 'Enter') {
-                event.preventDefault(); // 阻止默认回车行为
+                event.preventDefault();
                 sendToMax(); 
             }
         }
@@ -755,7 +796,8 @@
                     text: text, 
                     completed: false, 
                     date: new Date().toISOString().split('T')[0],
-                    createdAt: createdAtStr
+                    createdAt: createdAtStr,
+                    stars: 0
                 });
             } else if (maxState.mode === 'memo') {
                 state.memoText = state.memoText ? state.memoText + "\n" + text : text;
@@ -763,7 +805,6 @@
 
             saveState();
             
-            // 绝对彻底清空输入框
             input.value = "";
             maxState.mode = null;
 
